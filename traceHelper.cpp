@@ -1,5 +1,6 @@
 #pragma once
 #include <type_traits>
+#include <vector>
 #include <ostream>
 
 template<typename T, class = void>
@@ -14,15 +15,28 @@ struct is_container<std::string, void> : public std::false_type {};
 template<class... B>
 constexpr bool is_container_v = is_container<B...>::value;
 
+namespace {
+  std::vector<int> values;
+  auto i = values.begin();
+}
+
+
+template <typename T, typename U>
+std::ostream& operator<<(std::ostream& os, const std::pair<T, U>& pair) {
+  os << "{ " << pair.first << ", " << pair.second << " }";
+  return os; 
+}
+
 template <typename T, typename = std::enable_if_t<is_container_v<T>>>
 std::ostream& operator<<(std::ostream& os, const T& collection) {
   os << "[ ";
   auto size = collection.size();
 
   if (size < 13) {
-    for (auto it = collection.begin(); it != collection.end(); ++it) {
+    for (auto it = collection.begin(), next_it = it; it != collection.end(); it = next_it) {
       os << *it;
-      if (it != collection.end()) os << ", ";
+      next_it = ++it;
+      if (next_it != collection.end()) os << ", ";
     }
   }
   else {
