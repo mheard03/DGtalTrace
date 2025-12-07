@@ -8,6 +8,7 @@
 #include <cstdlib>
 #include <deque>
 #include <functional>
+#include <initializer_list>
 #include <limits>
 #include <memory>
 #include <string_view>
@@ -24,7 +25,104 @@
 #include <DGtal/images/Image.h>
 #include <DGtal/images/ImageSelector.h>
 
-enum class Angles : uint8_t { Rotate0, Rotate90, Rotate180, Rotate270 };
+enum class Angles : uint16_t { Rotate0, Rotate90, Rotate180, Rotate270 };
+
+#define FOR_ANGLES_INLINE(X, ...) X(Angles::Rotate0, 0, __VA_ARGS__), X(Angles::Rotate90, 90, __VA_ARGS__), X(Angles::Rotate180, 180, __VA_ARGS__), X(Angles::Rotate270, 270, __VA_ARGS__)
+#define FOR_ANGLES(X, ...) X(Angles::Rotate0, 0, __VA_ARGS__) \
+  X(Angles::Rotate90, 90, __VA_ARGS__) \
+  X(Angles::Rotate180, 180, __VA_ARGS__) \
+  X(Angles::Rotate270, 270, __VA_ARGS__)
+
+constexpr std::array<Angles, 4> AllAngles = { Angles::Rotate0, Angles::Rotate90, Angles::Rotate180, Angles::Rotate270 };
+constexpr std::array<uint16_t, 4> AllAngleValues = { 0, 90, 180, 270 };
+
+
+
+  struct AnglesValues {
+  constexpr const Angles operator[](uint16_t v) const {
+    if (v == 0) return Angles::Rotate0;
+    if (v == 90) return Angles::Rotate90;
+    if (v == 180) return Angles::Rotate180;
+    if (v == 270) return Angles::Rotate270;
+    throw "what do?";
+  }
+};
+
+struct AnglesKeys {
+  constexpr const uint16_t operator[](Angles v) const {
+    if (v == Angles::Rotate0) return 0;
+    if (v == Angles::Rotate90) return 90;
+    if (v == Angles::Rotate180) return 180;
+    if (v == Angles::Rotate270) return 270;
+    throw "what do?";
+  }
+};
+
+constexpr Angles v = AnglesKeys[0];
+
+    class MyArray {
+    private:
+        int data_[5];
+    public:
+        // ... constructor and other members ...
+
+        constexpr int& operator[](int index) {
+            return data_[index];
+        }
+
+        constexpr const int& operator[](int index) const {
+            return data_[index];
+        }
+    };
+
+
+template <typename TEnum, typename T, size_t N>
+struct EnumArray {
+  typedef const std::array<T, N> InnerArray;
+  typedef TEnum Enum;
+ private:
+  const InnerArray innerArray;
+ public:
+  
+  constexpr EnumArray() : innerArray() {}
+  EnumArray(std::initializer_list<T>& values) : innerArray(values) {}
+  EnumArray(InnerArray& values) : innerArray(values) {}
+
+  T& operator[](TEnum __n) {
+    return innerArray[static_cast<typename InnerArray::size_type>(__n)];
+  }
+  const T& operator[](TEnum __n) const {
+    return innerArray[static_cast<typename InnerArray::size_type>(__n)];
+  }
+
+  const InnerArray& keys() const {
+    std::iota<
+    auto indices = std::make_index_sequence<10>();
+    std::array<Angles, N> keys;
+    std::transform(indices.begin(), indices.end() )
+  }
+  const InnerArray& values() const {
+    return innerArray;
+  }
+};
+
+Angles v = Angles::Rotate180;
+typedef decltype(v) vt;
+void doit2() {
+uint8_t x = 0;
+v = x;
+}
+
+
+/*
+  using Base::Base;
+  using Base::value_type, Base::difference_type, Base::reference, Base::const_reference, Base::pointer, 
+        Base::const_pointer, Base::iterator, Base::const_iterator, Base::reverse_iterator, Base::const_reverse_iterator;
+  using Base::begin, Base::cbegin, Base::end, Base::cend, Base::empty, Base::size, Base::max_size, Base::fill, Base::swap;
+}*/
+
+
+
 
 template <Angles CWAngle>
 inline constexpr void rotate(CEVec2::Container& coords) {
@@ -45,10 +143,38 @@ inline constexpr const CEVec2 getRotated(const CEVec2::Container& coords) {
 }
 
 template <Angles CWAngle>
-inline constexpr void offset(CEVec2& coords, const CEVec2& offset) {
+inline constexpr void offset(CEVec2 coords, const CEVec2 offset) {
   const CEVec2 rotOffset = getRotated<CWAngle>(offset);
   coords[0] += rotOffset[0];
   coords[1] += rotOffset[1];
+}
+
+
+typedef decltype(&getRotated<Angles::Rotate0>) fnGetRotated;
+
+
+void doit() {
+    std::array<fnGetRotated, 4> getRotated_fns({
+&getRotated<Angles ::Rotate0>,
+&getRotated<Angles ::Rotate90>,
+&getRotated<Angles ::Rotate180>,
+&getRotated<Angles ::Rotate270> });
+
+auto x = getRotated_fns[Angles::Rotate180];
+auto y = x({1, 1});
+
+
+
+#define ADD_ENUM_FUNCTION(enum, number, arrayName, function) function<enum>
+#define MAKE_ENUM_FUNCTION_ARRAY(enum, length, arrayName, function) EnumDelegates<Angles, decltype(&function<Angles::Rotate0>), length> arrayName({ FOR_ANGLES_INLINE(ADD_ENUM_FUNCTION, arrayName, function) });
+
+MAKE_ENUM_FUNCTION_ARRAY(enum, 4, getRotator, getRotated)
+
+x = getRotator[Angles::Rotate0];
+
+std::array<int, 4> a;
+a[0] = 3;
+*/
 }
 
 template <Angles CWAngle>
@@ -83,77 +209,171 @@ constexpr const std::array<CEVec2, 2> getRotatedBounds(const CEVec2& center, con
   return result;
 }
 
-template <Angles CWAngle>
-struct CompassOffsets {
- private:
-  static constexpr auto r = getRotated<CWAngle>;
 
- public:
-  static constexpr const CEVec2 oNW = r({-1, -1});
-  static constexpr const CEVec2 oN =  r({+0, -1});
-  static constexpr const CEVec2 oNE = r({+1, -1});
-  static constexpr const CEVec2 oW =  r({-1, +0});
-  static constexpr const CEVec2 oC =  r({+0, +0});
-  static constexpr const CEVec2 oE =  r({+1, +0});
-  static constexpr const CEVec2 oSW = r({-1, +1});
-  static constexpr const CEVec2 oS =  r({+0, +1});
-  static constexpr const CEVec2 oSE = r({+1, +1});
-};
 
 using namespace DGtal;
 using namespace DGtal::Z2i;
 
 typedef ImageSelector<Domain, uint32_t>::Type RgbImage;
 
-template <Angles CWAngle, int MarginN, int MarginE = MarginN, int MarginS = MarginN, int MarginW = MarginE>
-struct Sampler {
- public:
-  static constexpr const CEVec2 lowerOffset0 = CEVec2(-MarginW, -MarginN);
-  static constexpr const CEVec2 upperOffset0 = CEVec2(MarginE, MarginS);
-  const CEVec2 centerPoint;
-  const std::array<CEVec2, 2> bounds;
-  const RgbImage* image;
-  const KSpace* K;
+template <Angles CWAngle>
+struct UnboundedSampler {
+  typedef RgbImage::Value Value;
   typedef KPreSpace PK;
-
- public:
-  static constexpr Angles cwAngle = CWAngle;
-
-  Sampler(const CEVec2 centerPoint, const RgbImage& image, const KSpace& K) :
-    centerPoint(centerPoint), 
-    bounds(getRotatedBounds<CWAngle>(centerPoint, lowerOffset0, upperOffset0)),
-    image(&image),
-    K(&K) {};
   
-  virtual bool isValid() const {
-    return K->uIsInside(PK::uSpel(bounds[0])) && K->uIsInside(PK::uSpel(bounds[1]));
+  
+  const std::function<CEVec2(CEVec2)> getGetRotated(Angles angle) {
+#define TRY_READ(enum, number) if (angle == enum) return getRotated<enum>;
+FOR_ANGLES(TRY_READ);
+#undef TRY_READ
   }
 
-  inline const CEVec2 getCoords(const CEVec2 offset) const {
-    return K->uCoords(K->uSpel(centerPoint + getRotated<CWAngle>(offset)));    
+  const std::function<CEVec2(CEVec2)> fnGetRotated = getGetRotated(Angles::Rotate0);
+
+
+  UnboundedSampler() = delete;
+  
+  static inline const CEVec2 getCoords(const CEVec2 centerPoint, const CEVec2 offset, const KSpace& K) {
+    return K.uCoords(K.uSpel(centerPoint + getRotated<CWAngle>(offset)));    
   }
 
-  const RgbImage::Value operator()(const CEVec2 offset) const {
-    return image->operator()(getCoords(offset));
+  static const Value getValue(const CEVec2 centerPoint, const CEVec2 offset, const KSpace& K, const RgbImage& image) {
+    return image.operator()(getCoords(centerPoint, offset, K));
   }
 };
 
+template <Angles CWAngle, int MarginN, int MarginE = MarginN, int MarginS = MarginN, int MarginW = MarginE>
+struct Sampler : public UnboundedSampler<CWAngle> {
+ private:
+  typedef UnboundedSampler<CWAngle> Base;
+
+  static constexpr const std::array<CEVec2, 2> getRotatedOffsets() {
+    constexpr CEVec2 lowerOffset(-MarginW, -MarginN);
+    constexpr CEVec2 upperOffset(MarginE, MarginS);
+
+    if (lowerOffset[0] == lowerOffset[1] && lowerOffset == upperOffset * -1) {
+      return { lowerOffset, upperOffset };
+    }
+
+    typedef CEVec2::Component val;
+    val N = std::min(lowerOffset[1], upperOffset[1]);
+    val W = std::min(lowerOffset[0], upperOffset[0]);
+    val S = std::max(lowerOffset[1], upperOffset[1]);
+    val E = std::max(lowerOffset[0], upperOffset[0]);
+    
+    const std::array<CEVec2, 4> corners = { CEVec2(W, N), CEVec2(W, S), CEVec2(E, S), CEVec2(E, N) };
+
+    size_t lo_i = static_cast<size_t>(CWAngle);
+    size_t up_i = (lo_i + 2) % 4;
+
+    const std::array<CEVec2, 2> result { getRotated<CWAngle>(corners[lo_i]), getRotated<CWAngle>(corners[up_i]) };
+    return result;
+  }
+
+ public:
+  static constexpr std::array<const CEVec2, 2> offsets = getRotatedOffsets();
+ 
+ public:
+  typedef typename Base::Value Value;
+  typedef typename Base::PK PK;
+  Sampler() = delete;
+  
+  static const bool isValid(const CEVec2 centerPoint, const KSpace& K) {
+    return K.uIsInside(PK::uSpel(centerPoint + offsets[0])) && K.uIsInside(PK::uSpel(centerPoint + offsets[1]));
+  }
+};
+
+#define FOR_DIRECTIONS_INLINE(X) X(nw), X(n), X(ne), X(w), X(c), X(e), X(sw), X(s), X(se)
+#define FOR_DIRECTIONS(X) X(nw) \
+  X(n) \
+  X(ne) \
+  X(w) \
+  X(c) \
+  X(e) \
+  X(sw) \
+  X(s) \
+  X(se)
+
+template <Angles CWAngle>
+struct NeighborSampler;
+
+struct NeighborSample {
+  typedef RgbImage::Value Value;
+
+ private:
+  static constexpr const CEVec2 o_nw = CEVec2(-1, -1);
+  static constexpr const CEVec2 o_n =  CEVec2(+0, -1);
+  static constexpr const CEVec2 o_ne = CEVec2(+1, -1);
+  static constexpr const CEVec2 o_w =  CEVec2(-1, +0);
+  static constexpr const CEVec2 o_c =  CEVec2(+0, +0);
+  static constexpr const CEVec2 o_e =  CEVec2(+1, +0);
+  static constexpr const CEVec2 o_sw = CEVec2(-1, +1);
+  static constexpr const CEVec2 o_s =  CEVec2(+0, +1);
+  static constexpr const CEVec2 o_se = CEVec2(+1, +1);
+
+#define FIELD(name) Value name;
+#define ARG(name) const Value name
+#define ASSIGN(name) name(name)
+#define READ(name) Sampler<CWAngle, 1>::getValue(centerPoint, o_##name, K, image)
+
+ public:
+  FOR_DIRECTIONS(FIELD)
+
+  NeighborSample() = default;
+  NeighborSample(FOR_DIRECTIONS_INLINE(ARG)) : FOR_DIRECTIONS_INLINE(ASSIGN) {}
+
+  template <Angles CWAngle>
+  static NeighborSample read(const CEVec2 centerPoint, const KSpace& K, const RgbImage& image) {
+    return NeighborSample(FOR_DIRECTIONS_INLINE(READ));
+  }
+
+  template <Angles CWAngle>
+  static bool isValid(const CEVec2 centerPoint, const KSpace& K) {
+    return Sampler<CWAngle, 1>::isValid(centerPoint, K);
+  }
+
+  template <Angles CWAngle>
+  static bool tryRead(NeighborSample& sample, const CEVec2 centerPoint, const KSpace& K, const RgbImage& image) {
+    if (!isValid<CWAngle>(centerPoint, K)) return false;
+    sample = read<CWAngle>(centerPoint, K, image);
+    return true;
+  }
+  
+  inline static bool tryRead(NeighborSample& sample, const Angles cwAngle, const CEVec2 centerPoint, const KSpace& K, const RgbImage& image){
+    switch (cwAngle) {
+      case Angles::Rotate0: return tryRead<Angles::Rotate0>(sample, centerPoint, K, image);
+      case Angles::Rotate90: return tryRead<Angles::Rotate90>(sample, centerPoint, K, image);
+      case Angles::Rotate180: return tryRead<Angles::Rotate180>(sample, centerPoint, K, image);
+      case Angles::Rotate270: return tryRead<Angles::Rotate270>(sample, centerPoint, K, image);
+    }
+  }
+
+#undef FIELD
+#undef ARG
+#undef ASSIGN
+};
+
+typedef Sampler<Angles::Rotate0, 1> s;
+
+
+
+
+/*
 template <Angles CWAngle>
 struct NeighborSampler : public Sampler<CWAngle, 1> {
  private:
   typedef Sampler<CWAngle, 1> Base;
-  typedef RgbImage::Value Value;
   static constexpr auto r = getRotated<CWAngle>;
 
  public:
-  using Base::Base;
+  typedef typename Base::Value Value;
+  typedef typename Base::PK PK;
+  NeighborSampler() = delete;
 
 #define dir(name, dx, dy) \
- private: \
-  static constexpr const CEVec2 name ## Offset = r({dx, dy}); \
- public: \
-  inline const CEVec2 name ## Coords() const { return this->K->uCoords(this->K->uSpel(this->centerPoint + name ## Offset)); } \
-  inline const Value  name() const { return this->image->operator()(name ## Coords()); }
+  static inline const Value name(const CEVec2 centerPoint, const KSpace& K, const RgbImage& image) { \
+    return Base::getValue(centerPoint, {dx, dy}, K, image); \
+  }
 
   dir(nw, -1, -1);
   dir(n,  +0, -1);
@@ -164,7 +384,15 @@ struct NeighborSampler : public Sampler<CWAngle, 1> {
   dir(sw, -1, +1);
   dir(s,  +0, +1);
   dir(se, +1, +1);
+
+  NeighborSample read() const {
+    #define X(name) name()
+    return NeighborSample(FOR_DIRECTIONS_INLINE(X));
+    #undef X
+  }
 };
+
+
 
 /*
 template <Angles CWAngle, uint8_t MarginN, uint8_t MarginE = MarginN, uint8_t MarginS = MarginN, uint8_t MarginW = MarginE>

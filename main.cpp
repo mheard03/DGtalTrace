@@ -22,6 +22,7 @@
 
 ////////// INCLUDES /////////
 
+#include <DGtal/base/BasicFunctors.h>
 #include <DGtal/kernel/PointVector.h>
 #include <algorithm>
 #include <array>
@@ -40,6 +41,7 @@
 #include <DGtal/base/ConstRangeAdapter.h>
 #include <DGtal/images/Image.h>
 #include <DGtal/images/ImageSelector.h>
+#include <DGtal/images/ConstImageAdapter.h>
 #include <DGtal/io/readers/STBReader.h>
 
 #include <DGtal/kernel/BasicPointPredicates.h>
@@ -60,6 +62,9 @@
 #include <DGtal/geometry/surfaces/estimation/IIGeometricFunctors.h>
 #include <DGtal/geometry/surfaces/estimation/IntegralInvariantCovarianceEstimator.h>
 
+#include "CEVec.cpp"
+#include "PixelNeighborhoods/CWAnglesEnum.hpp"
+#include "PixelNeighborhoods/DirectionsOffsets.cpp"
 #include "DGtal/geometry/curves/BinomialConvolver.h"
 
 #include <DGtal/io/readers/GenericReader.h>
@@ -79,18 +84,20 @@
 #include <DGtal/geometry/curves/StabbingCircleComputer.h>
 #include <DGtal/geometry/curves/StabbingLineComputer.h>
 #include <DGtal/topology/CanonicSCellEmbedder.h>
+#include "PixelNeighborhoods/PixelRelativePointFunctor.cpp"
 
 
 
 #include <set>
 #include <map>
 #include <type_traits>
+#include <vector>
 #include "faceUtil.cpp"
 #include "traceHelper.cpp"
 #include "SvgBoard.cpp"
 #include "IIGeometricFunctors2.h"
 #include "KSpaceLinearizer.cpp"
-#include "PixelNeighborhood.cpp"
+// #include "PixelNeighborhood.cpp"
 
 using namespace DGtal;
 using namespace Z2i;
@@ -144,6 +151,46 @@ inline Point pointFromSpelAndOffset(const PreCell& spel, const Vector& offset) {
   return KPreSpace::uCoords(KPreSpace::uTranslation(spel, offset));
 }
 
+/*
+std::vector<NeighborSample> getSamples(const Cell& pointel, const KSpace& K, const RgbImage& image) {
+  typedef KPreSpace PK;
+  constexpr std::array<CEVec2, 4> offsets = {CEVec2(1, -1), CEVec2(1, 1), CEVec2(-1, 1), CEVec2(-1, -1) };
+  const CEVec2 pointelKCoords = PK::uKCoords(pointel);
+
+#define TRY_READ(enum, number) \
+NeighborSample sample##number; \
+const CEVec2 centerPoint##number = PK::uCoords(PK::uSpel(pointelKCoords + offsets[(int)enum])); \
+if (NeighborSample::tryRead<enum>(sample##number, centerPoint##number, K, image)) result.push_back(sample##number);
+
+  std::vector<NeighborSample> result;
+  FOR_ANGLES(TRY_READ)
+  return result;
+
+#undef TRY_READ
+}
+*/
+/*
+bool isCorner2(const Cell& pointel, const KSpace& K, const RgbImage& image) {
+  typedef KPreSpace PK;
+  
+  std::vector<NeighborSample> samples;
+  auto pointelKCoords = K.uKCoords(pointel);
+  auto spelNW = PK::uCell(CEVec2(1, 1) + pointelKCoords);
+  if (K.uIsInside(spelNW)) {
+    uIsInside())
+  }
+  for (auto pixel : uPixelFaces(K, pointel)) {
+    auto offset = K.u
+  }
+  if (pixels.size() != 4) {
+    return false;
+  }
+
+  std::vector<std::string> dirNames = {"NE", "SE", "SW", "NW"};
+  std::vector<Vector> dirs = cornerCellDirs;
+}
+*/
+/*
 bool isMaybeCorner(const Cell& pointel, const KSpace& K, const RgbImage& image) {
   auto pixels = uPixelFaces(K, pointel);
   if (pixels.size() != 4) {
@@ -171,7 +218,7 @@ bool isMaybeCorner(const Cell& pointel, const KSpace& K, const RgbImage& image) 
   if (NE == NW && SE == SW) return false; // horizontal stripes
   if ((NE == SW) != (NW != SE)) return false; // checkerboard
 
-  /*
+  
   for (auto i = 0; i < dirNames.size(); i++) {
     trace.info() << pointel << " + " << dirNames[i] << " |"
                  << " dir: " << dirs[i]
@@ -179,7 +226,7 @@ bool isMaybeCorner(const Cell& pointel, const KSpace& K, const RgbImage& image) 
                  << ", point: " << points[i]
                  << ", color: " << colors[i] << std::endl;
   }
-  */
+  
   return true;
 }
 
@@ -235,6 +282,7 @@ bool isCorner(const Cell& pointel, const KSpace& K, const RgbImage& image) {
   return false;
 
 }
+  */
 /*
 template <int Angle>
 void testPointOffsetter(const Point& point) {
@@ -282,7 +330,38 @@ int main(int argc, char** argv)
   KSpace K;  
   K.init(domain.lowerBound(), domain.upperBound(), { KSpace::Closure::PERIODIC, KSpace::Closure::OPEN });
 
+  typedef DGtalTrace::Offsets::CWAngles Angles;
+  auto dirArrays = DGtalTrace::Offsets::Impl::makeDirArrays();
+  
+  trace.info() << dirArrays << std::endl;
 
+  typedef functors::Identity Identity;
+  typedef DGtalTrace::Offsets::PixelRelativePointFunctor<RgbImage> PRP;
+  typedef ConstImageAdapter<RgbImage, RgbImage::Domain, PRP, RgbImage::Value, Identity> PRPAdapter;
+
+  
+  PRP fnPrp(K);
+  constexpr Identity fnIdentity;
+  PRPAdapter prp(image, image.domain(), fnPrp, fnIdentity);
+  trace.info() << prp << std::endl;
+
+  std::vector<Angles> angles = { Angles::Rotate0, Angles::Rotate90, Angles::Rotate180, Angles::Rotate270 };
+  std::vector<Point> centers = { { 0, 0}, {-10, 0}, {0, -1}};
+  std::vector<Point> offsets = { { 0, 0}, {-1, 0}, {0, -1}};
+  for (auto c : centers) {
+    fnPrp.setCenterPoint(c);
+    for (auto a : angles) {
+      fnPrp.setAngle(a);
+      trace.info() << "Center: " << c << ", CWAngle: " << a << std::endl;
+      for (auto p : offsets) {
+        
+        trace.info() << "  Offset: " << p << "; Coords: " << fnPrp(p) << "; isInside: " << fnPrp.isInside(p) << std::endl;
+      }
+    }
+  }
+
+  
+/*
   typedef NeighborSampler<Angles::Rotate0> SB;
   std::vector<Point> centers = { {50, 50}, {0, 10}, {116, 15}, {0, 0} };
   std::vector<Point> offsets = { {0, 0}, {-1, 0} };
@@ -299,7 +378,7 @@ int main(int argc, char** argv)
       trace.info() << "  image coords out of bounds";
     }
   }
-
+  */
   /*
 
   Point point = {2, 2};
@@ -338,7 +417,7 @@ int main(int argc, char** argv)
   }
 */
   return 0;
-
+/*
   Options options;
 
   options.h = 0.1;
@@ -494,6 +573,7 @@ int main(int argc, char** argv)
       board << SetMode(dss.className(), "BoundingBox");
       board << CustomStyle(dss.className(), new CustomPenColor(Color::Blue));
       board << dss;
+      */
       /*
       // board << s;
       auto hull = s.getPreimage()->pHull();
@@ -555,7 +635,7 @@ shortDss.
       if (isLongBoi) board.setPenColorRGBi(0, 0, 255);
       board << dss; 
       if (isLongBoi) board.setPenColor(penColor);
-      */
+      
     } 
   
 continue;
@@ -584,6 +664,6 @@ continue;
   }
 
   board.saveWebSVG("stateSurfelBoard.svg");
-
+*/
   return 0;
 }

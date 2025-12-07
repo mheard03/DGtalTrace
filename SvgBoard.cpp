@@ -22,8 +22,8 @@ namespace {
                 const double pageHeight,
                 const double margin) {
       _scale = 1;
-      _deltaX = 0;
-      _deltaY = 0;
+      _deltaX = margin;
+      _deltaY = margin;
       _height = rect.height;
     }
 
@@ -39,44 +39,51 @@ public:
   void saveWebSVG(const char* filename) {
     auto oldState = Board::State(_state);
     _state = Board::State();
+    /*
     auto ppmm = 720.0f / 254.0f;
-    setUnit(ppmm, Board::UPoint);
-
-    _state.unitFactor = 1;
-
+    setUnit(1.0, Board::UPoint);
+    */
+    //setUnit(80, Unit::UPoint);
     std::ofstream file(filename);
     
-    TransformWebSVG transform;
+    LibBoard::TransformSVG transform;
     LibBoard::Rect box = boundingBox();
-    transform.setBoundingBox(box, box.width, box.height, 0);
+    double margin = 0;
+    trace.info() << "boundingBox: " << box << std::endl;
+    transform.setBoundingBox(box, 1000, 1000, 10);
 
-    bool clipping = _clippingPath.size() > 2;
-    if ( clipping ) box = box && _clippingPath.boundingBox();
+    auto viewBox = LibBoard::Rect(box.left - margin,
+      box.top - margin,
+      box.width + 2 * margin,
+      box.height + 2 * margin);
+    auto maxLeg = std::max(viewBox.width, viewBox.height);
+    auto svgScale = transform.scale(1);
+    auto svgWidth = 1000; // transform.scale(box.width);
+    auto svgHeight = 1000; //  transform.scale(box.height);
+
+    trace.info() << "[" << maxLeg << ", " << svgScale << ", " << svgWidth << "x" << svgHeight << std::endl;
+
     
-    file << "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\"" << std::endl;
-    file << "     width=\"" << ceil(box.width) << "\" "
-                  << "height=\"" << ceil(box.height) << "\" "
+    file << "<svg version=\"1.1\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\"" << std::endl;
+    file << "     width=\"" << svgWidth << "\" "
+                  << "height=\"" << svgHeight << "\" "
                   << "preserveAspectRatio=\"xMinYMin meet\"" << std::endl;
-    file << "     viewBox=\"" << box.left << " " << (box.height - box.top) << " " << box.width << " " << box.height << "\"" << std::endl;
+    file << "     viewBox=\"" << viewBox.left << " " << viewBox.height - viewBox.top << " " << viewBox.width << " " << viewBox.height << "\"" << std::endl;
     file << "     style=\""
                   << "background-color: " << _backgroundColor.svg() << "; "
                   << "display: block; "
-                  << "aspect-ratio: " << box.width << " / " << box.height << "; "
-                  << "width: auto; "
-                  << "max-width: 100%; "
-                  << "max-height: 100vh; "
-                  << "transform: scale(1,-1);\"";
+                  << "aspect-ratio: " << viewBox.width << " / " << viewBox.height << "; "
+                  << "width: " << svgWidth << "px; "
+                  << "height: " << svgHeight << "px; "
+                  << "transform: scale(1,-1); "
+                  << "\"";
     file << ">" << std::endl;
-
-    if (clipping) {
-      file << "<g clip-rule=\"nonzero\">\n"
-                << " <clipPath id=\"GlobalClipPath\">\n"
-                << "  <path clip-rule=\"evenodd\"  d=\"";
-      _clippingPath.flushSVGCommands( file, transform );
-      file << "\" />\n";
-      file << " </clipPath>\n";
-      file << "<g clip-path=\"url(#GlobalClipPath)\">\n";
-    }
+    file << "<style>" << std::endl;
+    file << "  image { "
+             << "transform: scale(1,-1); "
+             << "image-rendering: pixelated; "
+             << "}" << std::endl;
+    file << "</style>" << std::endl;
     
     // Draw the shapes.
     std::vector< Shape* > shapes = _shapes;
@@ -87,8 +94,6 @@ public:
       (*i)->flushSVG( file, transform );
       ++i;
     }  
-
-    if (clipping) file << "</g>\n</g>";
     
     file << "</svg>" << std::endl;
     file.close();

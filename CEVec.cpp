@@ -19,36 +19,29 @@ struct CEVec : public TPointVector::Container {
   typedef typename PointVector::Component Component;
   static constexpr DGtal::Dimension dimension = PointVector::dimension;  
 
+  // Main constructors
   using Container::Container;
   constexpr CEVec() = default;
-  constexpr CEVec(const std::initializer_list<Component>& list) : Container() {
-    assert(list.size() <= dimension);
-    std::copy(list.begin(), list.end(), this->begin());
-  };
+  constexpr CEVec(const std::initializer_list<Component>& list) : Container(list) {}
   constexpr CEVec(const Container& other) : Container(other) {}
-  constexpr CEVec(const PointVector& pointVector) : Container() { 
-    for (DGtal::Dimension i = 0; i < dimension; i++) {
-      this->operator[](i) = pointVector[i];
-    }
-  }
 
-  
+  // Specialized constructors for R2 and R3
   template <int U = dimension, typename std::enable_if_t<U == 2, bool> = true>
   constexpr CEVec(const Component x, const Component y) : Container({x,y}) {}
 
   template <int U = dimension, typename std::enable_if_t<U == 3, bool> = true>
   constexpr CEVec(const Component x, const Component y, const Component z) : Container({x,y,z}) {}
   
-/*
-  template <typename ... Vs, std::enable_if_t<sizeof...(Vs) >= 1 && sizeof...(Vs) <= dimension, bool> = true>
-  constexpr CEVec(const Vs... values) : Container({values...}) {}
-*/
-
-
+  // Conversion back and forth to PointVector
   operator const PointVector() const { return PointVector(this->data()); }
 
+  constexpr CEVec(const PointVector& pointVector) : Container() { 
+    for (DGtal::Dimension i = 0; i < dimension; i++) {
+      this->operator[](i) = pointVector[i];
+    }
+  }
 
-
+  // Operator overloads
   constexpr CEVec& operator+=(const CEVec& rhs) {
     for (DGtal::Dimension i = 0; i < dimension; i++) {
       this->operator[](i) += rhs[i];
@@ -83,7 +76,6 @@ struct CEVec : public TPointVector::Container {
   }
 };
 
+
 typedef CEVec<DGtal::Z2i::Point> CEVec2;
 typedef CEVec<DGtal::Z3i::Point> CEVec3;
-
-CEVec2 c({1,2});
