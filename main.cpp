@@ -86,6 +86,8 @@
 #include <DGtal/topology/CanonicSCellEmbedder.h>
 #include "PixelNeighborhoods/PixelRelativePointFunctor.cpp"
 
+#include "GraphTracer/tests/testCellIterator.cpp"
+
 
 
 #include <set>
@@ -305,6 +307,14 @@ void testCellOffsetter(const TCell& cell) {
 
 int main(int argc, char** argv)
 {
+
+  KSpace K;
+  K.init({0, 0}, {5, 5}, { KSpace::Closure::PERIODIC, KSpace::Closure::OPEN });
+
+  testCellIterator<KSpace::Cell>(K, {0, 0});
+
+
+  return 0;
   // constexpr std::array<int, 2> x = {1, 2};
   constexpr CEVec2 q1(0, 1);
   constexpr CEVec2 q2(2, -4);
@@ -327,7 +337,7 @@ int main(int argc, char** argv)
   trace.beginBlock("Extracting Digital Surface");
 
   auto domain = image.domain();   
-  KSpace K;  
+  // KSpace K;  
   K.init(domain.lowerBound(), domain.upperBound(), { KSpace::Closure::PERIODIC, KSpace::Closure::OPEN });
 
   typedef DGtalTrace::Offsets::CWAngles Angles;

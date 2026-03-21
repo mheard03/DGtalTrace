@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22.1)
+cmake_minimum_required(VERSION 3.25)
 project(DGtalTrace)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -22,10 +22,11 @@ IF(NOT EXISTS ${CPM_DOWNLOAD_LOCATION})
   )
   LIST(GET download_status 0 status_code)
   IF(NOT status_code EQUAL 0)
-    MESSAGE(FATAL_ERROR "Failed to download CPM.cmake: ${download_status}")
+    MESSAGE(FATAL_ERROR "Failed to download CPM.cmake: ${download_status}")    
   ENDIF()
 ENDIF()
 INCLUDE(${CPM_DOWNLOAD_LOCATION})
+MESSAGE(STATUS "CPM ${CURRENT_CPM_VERSION} ready")
 
 # magic_enum  -----------------------------------------------------------------
 CPMAddPackage(
