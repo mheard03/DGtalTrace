@@ -15,20 +15,19 @@
 
 enum DimNames { POINTEL = 0, SURFEL = 1, SPEL = 2, PIXEL = 2 };
 
-namespace {
-  template <typename KSpace, typename Cell>
-  std::vector<Cell> uAllFaces(const KSpace& K, const Cell& startCell, DGtal::Dimension toDim) {
-    DGtal::Dimension fromDim = K.uDim(startCell);
-    if (fromDim == toDim) return { startCell };
+template <typename KSpace>
+std::vector<typename KSpace::Cell> uAllFaces(const KSpace& K, const typename KSpace::Cell& startCell, int toDim) {
+  DGtal::Dimension fromDim = K.uDim(startCell);
+  if (fromDim == toDim) return { startCell };
 
-    std::vector<Cell> result;
-    auto faces = (fromDim > toDim) ? K.uFaces(startCell) : K.uCoFaces(startCell);
-    for (auto face : faces) {
-      if (K.uDim(face) == toDim) result.push_back(face);
-    }
-    return result;
+  std::vector<typename KSpace::Cell> result;
+  auto faces = (fromDim > toDim) ? K.uFaces(startCell) : K.uCoFaces(startCell);
+  for (auto face : faces) {
+    if (K.uDim(face) == toDim) result.push_back(face);
   }
+  return result;
 }
+
 
 template <typename KSpace, typename Cell>
 std::vector<Cell> uPixelFaces(const KSpace& K, const Cell& startCell) {
