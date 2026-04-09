@@ -16,7 +16,7 @@ set(CMAKE_BUILD_TYPE Release)
 SET(CPM_DOWNLOAD_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/cmake/CPM.cmake")
 IF(NOT EXISTS ${CPM_DOWNLOAD_LOCATION})
   FILE(DOWNLOAD
-    "https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.40.2/CPM.cmake"
+    "https://github.com/cpm-cmake/CPM.cmake/releases/download/v0.38.1/CPM.cmake"
     ${CPM_DOWNLOAD_LOCATION}
     STATUS download_status
   )
@@ -25,8 +25,12 @@ IF(NOT EXISTS ${CPM_DOWNLOAD_LOCATION})
     MESSAGE(FATAL_ERROR "Failed to download CPM.cmake: ${download_status}")    
   ENDIF()
 ENDIF()
+IF(EXISTS ${CPM_DOWNLOAD_LOCATION})
+  MESSAGE(STATUS "CPM.cmake found at: ${CPM_DOWNLOAD_LOCATION}")
+ELSE()
+  MESSAGE(FATAL_ERROR "CPM.cmake not found at: ${CPM_DOWNLOAD_LOCATION}")
+ENDIF()
 INCLUDE(${CPM_DOWNLOAD_LOCATION})
-MESSAGE(STATUS "CPM ${CURRENT_CPM_VERSION} ready")
 
 # magic_enum  -----------------------------------------------------------------
 CPMAddPackage(
@@ -50,6 +54,16 @@ CPMAddPackage(
     "DGTAL_WRAP_PYTHON OFF"
 )
 
+# Boost polygon  --------------------------------------------------------------
+CPMAddPackage(
+  NAME BoostPolygon
+  GITHUB_REPOSITORY boostorg/polygon
+  VERSION 1.84.0
+  GIT_TAG "boost-1.84.0"
+)
+
+
+
 # Restore original build type  ------------------------------------------------
 set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_SAVED}) 
 
@@ -58,9 +72,10 @@ set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_SAVED})
 ADD_EXECUTABLE(DGtalTrace main.cpp)
 TARGET_LINK_LIBRARIES(DGtalTrace magic_enum::magic_enum)
 TARGET_LINK_LIBRARIES(DGtalTrace DGtal::DGtal)
-
+TARGET_INCLUDE_DIRECTORIES(DGtalTrace PRIVATE ${BoostPolygon_SOURCE_DIR}/include)
 
 # INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
 
 # TARGET_INCLUDE_DIRECTORIES(DGtalTrace ../magic_enum/)
+
 

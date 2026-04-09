@@ -24,9 +24,11 @@
 
 #include <DGtal/base/BasicFunctors.h>
 #include <DGtal/kernel/PointVector.h>
+#include <DGtal/kernel/domains/Linearizer.h>
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <exception>
 #include <functional>
 #include <DGtal/helpers/StdDefs.h>
 
@@ -62,10 +64,10 @@
 #include <DGtal/geometry/surfaces/estimation/IIGeometricFunctors.h>
 #include <DGtal/geometry/surfaces/estimation/IntegralInvariantCovarianceEstimator.h>
 
-#include "CEVec.cpp"
-#include "PixelNeighborhoods/CWAnglesEnum.hpp"
-#include "PixelNeighborhoods/DirectionsOffsets.cpp"
-#include "DGtal/geometry/curves/BinomialConvolver.h"
+//#include "CEVec.cpp"
+//#include "PixelNeighborhoods/CWAnglesEnum.hpp"
+//#include "PixelNeighborhoods/DirectionsOffsets.cpp"
+//#include "DGtal/geometry/curves/BinomialConvolver.h"
 
 #include <DGtal/io/readers/GenericReader.h>
 #include <DGtal/io/colormaps/ColorBrightnessColorMap.h>
@@ -86,24 +88,36 @@
 #include <DGtal/topology/CanonicSCellEmbedder.h>
 #include "PixelNeighborhoods/PixelRelativePointFunctor.cpp"
 
-#include "GraphTracer/tests/testCellIterator.cpp"
+//#include "GraphTracer/tests/testCellIterator.cpp"
+//#include "GraphTracer/MultiCellIterator.cpp"
+//#include "util/tests/testScaledDomain.cpp"
 
-
-
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <iterator>
+#include <list>
+#include <ranges>
+#include <sstream>
+#include <string>
+#include <type_traits>
 #include <set>
 #include <map>
 #include <type_traits>
 #include <vector>
-#include "faceUtil.cpp"
-#include "traceHelper.cpp"
-#include "SvgBoard.cpp"
-#include "IIGeometricFunctors2.h"
-#include "KSpaceLinearizer.cpp"
+//#include "faceUtil.cpp"
+//#include "traceHelper.cpp"
+//#include "SvgBoard.cpp"
+//#include "IIGeometricFunctors2.h"
+//#include "KSpaceLinearizer.cpp"
 // #include "PixelNeighborhood.cpp"
 
-using namespace DGtal;
-using namespace Z2i;
+#include "util/KDomain.cpp"
+#include <boost/polygon/polygon.hpp>
 
+using namespace DGtal;
+
+/*
 struct Options
 {
   double h;
@@ -125,7 +139,7 @@ ColorFunctors::ColorToUInt colorToUInt;
 ColorFunctors::UIntToColor uIntToColor;
 
 typedef ImageSelector<Domain, uint32_t>::Type RgbImage;
-typedef Z2i::KSpace KSpace;
+// typedef Z2i::KSpace KSpace;
 
 template <typename Image>
 struct ValueMatchFunctor {
@@ -305,13 +319,483 @@ void testCellOffsetter(const TCell& cell) {
 }
 */
 
+template <typename T>
+std::vector<std::vector<T>> getCombinations(std::vector<std::vector<T>> inDimensionValues) {
+  std::vector<std::vector<T>> dimensionValues;
+  for (auto dimValues : inDimensionValues) {
+    std::vector<T> uniques;
+    std::ranges::sort(dimValues);
+    std::ranges::unique_copy(dimValues, std::back_inserter(uniques));
+    dimensionValues.push_back(uniques);
+  }
+
+  std::vector<std::vector<T>> combinations;
+  std::vector<std::vector<T>> newCombinations;
+  combinations.push_back({});
+
+  for (auto dimValues : dimensionValues) {
+    for (T value : dimValues) {
+      for (std::vector<T> current : combinations) {
+        std::vector<T> currentPlus(current);
+        currentPlus.push_back(value);
+        newCombinations.push_back(currentPlus);
+      }
+    }
+    combinations.swap(newCombinations);
+    newCombinations.clear();
+  }
+
+  combinations.shrink_to_fit();
+  return combinations;
+}
+
+template <typename T>
+std::vector<std::vector<T>> getCombinations(std::vector<T> repeatedValues, uint repeatCount) {
+  std::vector<std::vector<T>> dimensionValues;
+  for (uint i = 0; i < repeatCount; i++) {
+    dimensionValues.push_back(repeatedValues);
+  }
+  return getCombinations<T>(dimensionValues);
+}
+
+using namespace DGtal::Z2i;
+typedef typename std::pair<Point, Point> Region;
+
+constexpr std::optional<Region> intersect(const Region& rect1, const Region& rect2) {
+  typedef typename Region::first_type Point;
+
+  Region result;
+  for (DGtal::Dimension k = 0; k < Point::dimension; ++k) {
+    result.first[k] = std::max(rect1.first[k], rect2.first[k]);
+    result.second[k] = std::min(rect1.second[k], rect2.second[k]);
+    if (result.first[k] >= result.second[k]) return std::nullopt; // disjoint
+  }
+  return result;
+}
+
+template <typename Compare>
+constexpr bool compare(const Point& p1, const Point& p2, Compare comparator) {
+  for (DGtal::Dimension k = 0; k < Point::dimension; ++k) {
+    if (comparator(p1[k], p2[k])) return false;
+  }
+  return true;
+}
+constexpr bool contains(const Region& r1, const Region& r2) {
+  return compare(r1.first, r2.first, std::less_equal<>()) &&
+         compare(r1.second, r2.second, std::greater_equal<>());
+}
+/*
+template <DGtal::Dimension dimension>
+constexpr std::vector<Region> splitRegions(DGtal::ConstAlias<KSpace> ks, const DGtalTrace::KDomain<KSpace>& domain) {
+  Region domainRegion = { 
+    domain.lowerBound().preCell().coordinates, 
+    domain.upperBound().preCell().coordinates
+  };
+  Region kRegion = { 
+    ks->lowerCell().preCell().coordinates, 
+    ks->upperCell().preCell().coordinates 
+  };
+  trace.info() << "splitRegions (" << kRegion << ", " << domainRegion << ")" << std::endl;
+
+  if (!ks->isAnyDimensionPeriodic()) return { domainRegion };
+  {
+    // if the domain wraps all the way around the space, ensure the start and end match the space start and end
+    // avoids doubling the number of sub-domains
+    auto normSecond = ks->uCell(domainRegion.second).preCell().coordinates;
+    for (DGtal::Dimension k = 0; k < KSpace::dimension; k++) {
+      if (!ks->isSpacePeriodic(k)) continue;
+      if (normSecond[k] == domainRegion.second[k]) continue;
+      if (normSecond[k] + 1 == domainRegion.first[k]) {
+        domainRegion.first[k] = kRegion.first[k];
+        domainRegion.second[k] = kRegion.second[k];
+      }
+    }
+  }
+  if (contains(kRegion, domainRegion)) return { domainRegion };
+
+  trace.info() << "continuing splitRegions (" << kRegion << ", " << domainRegion << ")" << std::endl;
+  std::array<std::vector<int>, KSpace::dimension> periodicity = {};
+  periodicity.fill({0});
+  for (DGtal::Dimension k = 0; k < KSpace::dimension; k++) {
+    if (ks->isSpacePeriodic(k)) periodicity[k].push_back(1);
+  }
+
+  std::vector<Region> regions;
+  Vector kExtent  = kRegion.second - kRegion.first + Point::diagonal(1);
+  trace.info() << "regionExtent " << kExtent << std::endl;
+  for (auto const& tuple : std::apply(std::views::cartesian_product, periodicity)) {
+    Vector v = std::make_from_tuple<Vector>(tuple);
+    Region offsetRegion = { 
+      domainRegion.first - v * kExtent, 
+      domainRegion.second - v * kExtent
+    };
+    trace.info() << "v" << v << ", offset " << (v * kExtent) << ", offsetRegion" << offsetRegion << std::endl;
+    auto intersection = intersect(kRegion, offsetRegion);
+    if (intersection) {
+      regions.push_back(*intersection);
+    }
+  }
+
+
+  for (auto region : regions) {
+    trace.info() << region.first << "->" << region.second << "; ";
+  }
+  trace.info() << std::endl;
+  return regions;
+}
+  */
+  /*
+  print(tuple, i++);
+[&v]<size_t... Is>(std::index_sequence<Is...>)
+        { return std::views::cartesian_product((Is, v)...); }
+        (std::make_index_sequence<N>{});
+
+
+  for (DGtal::Dimension k = 0; k < Point::dimension; ++k) {
+    if (!ks->isSpacePeriodic(k)) continue;
+
+    std::vector<Region> newRegions;
+    for (const Region& r : regions) {
+      auto base = intersect(r, kBounds);
+      if (maybeSplit) {
+        newRegions.push_back(*maybeSplit);
+      }
+      else {
+        Region split1 = r;
+        split1.second[k] = kBounds.first[k];
+        newRegions.push_back(split1);
+
+        Region split2 = r;
+        split2.first[k] = kBounds.second[k] + 1;
+        newRegions.push_back(split2);
+      }
+    }
+    regions.swap(newRegions);
+  }
+  typedef DGtalTrace::KDomain<KSpace> KDomain;
+  const Point kLower = ks->lowerCell().preCell().coordinates;
+  const Point kUpper = ks->upperCell().preCell().coordinates;
+
+  std::vector<Region> rects = {{ domainLowerCell.preCell().coordinates, domainUpperCell.preCell().coordinates }};
+
+  for (DGtal::Dimension k = 0; k < Point::dimension; k++) {
+    if (!ks->isSpacePeriodic(k)) continue;
+    std::vector<Region> newRects;
+    for (auto rect : rects) {
+      auto& [srcLower, srcUpper] = rect;
+      if (srcUpper[k] <= kUpper[k]) {
+trace.info() << "k" << k << " srcUpper " << srcUpper << " < kUpper " << kUpper << std::endl;
+      }
+      
+      // First block: rect.lower to right edge of domain
+      {
+        Point firstUpper = srcUpper;
+        firstUpper[k] = kUpper[k];
+        newRects.push_back({ srcLower, firstUpper });
+      }
+
+      // Second block: right edge of domain to rect.upper
+      {
+        Point secondLower = srcUpper;
+        secondLower[k] = kUpper[k] + 1;
+        // secondLower = KDomain::normalizeCell(ks, secondLower).preCell().coordinates;
+        // Point secondUpper = KDomain::normalizeCell(ks, srcUpper).preCell().coordinates;
+        newRects.push_back({ secondLower, srcUpper });
+      }
+    }
+    rects.clear();
+    newRects.swap(rects);
+    trace.info() << "rects.size():" << rects.size() << "newRects.size():" << newRects.size() << std::endl;
+  }
+  return rects;
+}
+template <size_t N>
+auto product(auto&& v)
+{
+    return [&v]<size_t... Is>(std::index_sequence<Is...>)
+        { return std::views::cartesian_product((Is, v)...); }
+        (std::make_index_sequence<N>{});
+}
+*/
+
 int main(int argc, char** argv)
 {
+  using namespace DGtal::Z2i;
 
+  std::vector<KSpace::Closure> closureValues = {
+    KSpace::Closure::CLOSED,
+    KSpace::Closure::OPEN,
+    KSpace::Closure::PERIODIC
+  };
+  auto closureCombinations = getCombinations(closureValues, KSpace::dimension);
+  typedef typename std::array<KSpace::Closure, KSpace::dimension> ClosureArray;
+
+  Point p1 = Point::diagonal(0);
+  Point p2 = Point::diagonal(4);
+  std::vector<KSpace> allSpaces;
+  for (auto closureSet : closureCombinations) {
+    KSpace k;
+    ClosureArray closure;
+    for (auto i = 0; i < KSpace::dimension; i++) {
+      closure[i] = closureSet[i];
+    }
+    k.init(p1, p2, closure);
+    allSpaces.push_back(k);
+  }
+
+  std::vector<KSpace> testSpaces;
+  {
+    bool isNonPeriodicFound = false;
+    for (auto ks : allSpaces) {
+      if (ks.isAnyDimensionPeriodic() || !isNonPeriodicFound) {
+        testSpaces.push_back(ks);
+        isNonPeriodicFound = true;
+      }
+    }
+  }
+
+
+  using namespace Z2i;
+
+  for (auto ks : testSpaces) {
+    std::stringstream ss;
+    ss << ks;
+    trace.beginBlock(ss.str());
+
+    std::map<std::string, std::pair<Cell, PreCell>> pairs;
+    {
+      auto lowerBound = ks.uKCoords(ks.lowerCell());
+      auto upperBound = ks.uKCoords(ks.upperCell());
+      auto kSize = upperBound - lowerBound + Point::diagonal(1);
+      auto periodicDimDiagonal = Point::diagonal(0);
+      int periodicDim = -1;
+      for (auto k = 0; k < KSpace::dimension; k++) {
+        if (ks.isSpacePeriodic(k)) {
+          periodicDimDiagonal[k] = 1;
+          periodicDim = k;
+        }
+      }
+
+      std::map<std::string, std::pair<Point, Point>> pointPairs;
+      pointPairs["basic"] = {{2,2}, {4,4}};
+      pointPairs["narrow"] = {{2,2}, {2,4}};
+      pointPairs["full"] = {lowerBound, upperBound};
+      if (ks.isAnyDimensionPeriodic()) {
+        pointPairs["wide"] = {{3,3}, Point(4,4) + (kSize - 3) * periodicDimDiagonal };
+        pointPairs["periodicFull"] = {{2,2}, {4,4}};
+        for (auto k = 0; k < KSpace::dimension; k++) {
+          if (ks.isSpacePeriodic(k)) {
+            pointPairs["periodicFull"].first[k] = lowerBound[k];
+            pointPairs["periodicFull"].second[k] = upperBound[k];
+          }
+        }
+      }
+
+      for (auto [key, pointPair] : pointPairs) {
+        auto [lowerPoint, upperPoint] = pointPair;
+        pairs.insert_or_assign(key, std::pair{ ks.uCell(lowerPoint), KPreSpace::uCell(upperPoint) });
+      }
+    } // pairs population
+
+    typedef DGtalTrace::KDomain<KSpace> KDomain;
+
+    // bool writtenOne = false;
+    for (auto [key, cellPair] : pairs) {
+      trace.beginBlock(key);
+      auto [lower, upper] = cellPair;
+      
+      KDomain d(ks, lower, upper);
+      trace.info() << ks << std::endl;
+      trace.info() << d << std::endl;
+
+
+      trace.endBlock(); // key
+    }
+    trace.endBlock();   // kspace
+    trace.info() << std::endl;
+  }
+    
+  return 0;
+}
+    /*
+    
+    trace.beginBlock("Upper");
+    trace.beginBlock("normalizePoint");
+    {
+      auto lower = KPreSpace::uCell(commonLower);
+      auto upper = KPreSpace::uCell(basicUpper);
+
+    }
+      for (auto preCell : { first, second }) {
+        auto cell = K.uCell(preCell);
+        auto normCell = K.uCell(KDomain::normalizePoint(K, preCell.coordinates));
+        
+        auto dim = PKSpace::uDim(cell);
+        auto normDim = PKSpace::uDim(normCell);
+        if (cell != normCell || dim != normDim) {
+          trace.info() << preCell << "-> cell " << cell << ", " << " normCell " << normCell << std::endl;
+        }
+      }
+    }
+    trace.endBlock();
+
+
+
+    
+    wide, inverted, offset = upper;
+    for (int k = 0; k < KSpace::dimension; k++) {
+      points.normal = std::pair{P(defaultFirst), P(defaultSecond)};
+      points.narrow = std::pair{P(defaultFirst), P(defaultSecond)};
+      points.wide = std::pair{P(defaultFirst), P(defaultSecond)};
+      points.inverted = std::pair{P(defaultFirst), P(defaultSecond)};
+      points.offset = std::pair{P(defaultFirst), P(defaultSecond)};
+    }
+    for (int k = 0; k < Z2i::Point::dimension; k++) {
+      auto kWidth = ks.upperCell().preCell().coordinates[k] - ks.lowerCell().preCell().coordinates[k];
+      if (ks.isSpacePeriodic(k)) {
+        points.narrow.second.coordinates[k] = points.narrow.first.coordinates[k];
+        points.wide.second.coordinates[k] += 1.5 * kWidth;
+        points.inverted.second.coordinates[k] -= kWidth;
+        points.offset.first.coordinates[k] -= kWidth;
+        points.offset.second.coordinates[k] -= kWidth;
+      }
+    }
+    return points;
+  }
+
+  typedef DGtalTrace::KDomain<Z2i::KSpace> KDomain;
+  typedef Z2i::KSpace KSpace;
+  typedef Z2i::KPreSpace PKSpace;
+  typedef PKSpace::Cell PreCell;
+  for (auto const K : spaces) {
+    if (!K.isAnyDimensionPeriodic()) continue;
+    std::stringstream ss;
+    ss << K;
+    trace.beginBlock(ss.str());
+    CellSet cellSet = getCells(K);
+    auto cells = { cellSet.normal, cellSet.narrow, cellSet.wide, cellSet.inverted, cellSet.offset };
+
+    trace.beginBlock("normalizePoint tests");
+    for (auto [first, second] : cells) {
+      for (auto preCell : { first, second }) {
+        auto cell = K.uCell(preCell);
+        auto normCell = K.uCell(KDomain::normalizePoint(K, preCell.coordinates));
+        
+        auto dim = PKSpace::uDim(cell);
+        auto normDim = PKSpace::uDim(normCell);
+        if (cell != normCell || dim != normDim) {
+          trace.info() << preCell << "-> cell " << cell << ", " << " normCell " << normCell << std::endl;
+        }
+      }
+    }
+    trace.endBlock();
+
+    trace.beginBlock("normalizeUpperPoint tests");
+    // cells = { cellSet.normal, cellSet.narrow, cellSet.wide, cellSet.inverted, cellSet.offset };
+    cells = { cellSet.wide };
+    for (auto [first, second] : cells) {
+      auto lower = KDomain::normalizePoint(K, first.coordinates);
+      auto lowerCell = K.uCell(lower);
+
+      auto upper = KDomain::normalizeUpperBound(K, first.coordinates, second.coordinates);
+      auto upperPreCell = Z2i::KPreSpace::Cell(upper);
+      auto upperCell = K.uCell(upper);
+
+      auto oldOffset = second.coordinates - first.coordinates;
+      auto newOffset = upper - lower;
+
+      auto dim = PKSpace::uDim(PKSpace::uCell(upper));
+      auto normDim = PKSpace::uDim(upperPreCell);
+
+      // if (oldOffset != newOffset || dim != normDim) {
+        trace.info() << "Lower: " << first.coordinates << " -> " << lower << " -> " << lowerCell << std::endl;
+        trace.info() << "Upper: " << second.coordinates << " -> " << upper << " -> " << upperPreCell << " -> " << upperCell << std::endl;
+        trace.info() << "Offset:" << oldOffset << " -> " << newOffset << std::endl;
+        trace.info() << "Dimension: " << dim << "->" << normDim << std::endl;
+      // }
+    }    
+    trace.endBlock();
+
+    trace.endBlock();
+  }
+  */
+/*
+  auto allSurfels = KPreSpace::uLowerIncident(KPreSpace::uSpel({0,0}));
+  std::vector<KPreSpace::Cell> uniqueSurfels;
+  std::ranges::unique_copy(allSurfels, std::back_inserter(uniqueSurfels), {}, [](auto& c) { return KPreSpace::uTopology(c); });
+  std::sort(uniqueSurfels.begin(), uniqueSurfels.end());
+  trace.info() << "allFaces: " << allSurfels << std::endl;
+  trace.info() << "uniqueFaces: " << uniqueSurfels << std::endl;
+
+  for (auto K : spaces) {
+    std::stringstream ss;
+    ss << K;
+    trace.beginBlock(ss.str());
+
+    for (auto surfel : uniqueSurfels) {
+      Domain d(K.uFirst(surfel).preCell().coordinates, K.uLast(surfel).preCell().coordinates);
+      trace.info() << "Surfel: " << surfel << " (dim " << K.uDim(K.uFirst(surfel)) << ") -> " << d << " (size " << d.size() << ")" << std::endl;
+    }
+    trace.endBlock();
+  }
+*/
+
+  
+
+  
+  /*
+  typedef DGtal::Z2i::Point Point;
+  trace.info() << "[2,2] * [1,3] = " << (Point({2,2}) * Point({1,3})) << std::endl;
+
+  Point p(11, 17);
+  trace.info() << "Before: " << p << std::endl;
+  p[0] = 100;
+  trace.info() << "After: " << p << std::endl;
+
+  auto combos2 = getDirectionVectors<DGtal::Z2i::Point>();
+  trace.info() << "Z2i: " << combos2 << std::endl;;
+
+  auto combos3 = getDirectionVectors<DGtal::Z3i::Point>();
+  trace.info() << "Z3i: " << combos3 << std::endl;;
+
+  std::vector<Point> dv = getDimensionVectors<Point>();
+  trace.info() << "Z2i: " << dv << std::endl;
+
+  auto combinations = getCombinations<Point>({{1,2,3}, {10, 11, 12, 13}});
+  trace.info() << "getCombinations: " << combinations << std::endl;
+
+  auto combinations2 = getCombinations<Point>({-1, 0, 0, 1});
+  trace.info() << "getCombinations2: " << combinations2 << std::endl;
+
+  auto neighbors = getNeighborOffsetVectors<Point>();
+  trace.info() << "getNeighborOffsetVectors() " << neighbors << std::endl;
+  neighbors = getNeighborOffsetVectors<Point>(2);
+  trace.info() << "getNeighborOffsetVectors(2) " << neighbors << std::endl;
+  neighbors = getNeighborOffsetVectors<Point>(2, false);
+  trace.info() << "getNeighborOffsetVectors(2, false) " << neighbors << std::endl;
+
+
+  auto vertexPoints = getDomainVertices(Point(1,1), Point(3,5));
+  trace.info() << "getDomainVertices: " << vertexPoints << std::endl;
+
+  testDomainScalerFunctor();
+  testScaledDomainPair();
+  return 0;
+
+  /*
   KSpace K;
-  K.init({0, 0}, {5, 5}, { KSpace::Closure::PERIODIC, KSpace::Closure::OPEN });
+  K.init({0, 0}, {15, 15}, { KSpace::Closure::PERIODIC, KSpace::Closure::OPEN });
 
+  auto cell = K.uSpel({1, 1});
+  trace.info() << "cell: " << cell << std::endl;
+  for (auto face : K.uFaces(cell)) {
+    trace.info() << "face: " << face << " (dim " << K.uDim(face) << ", top " << K.uTopology(face) << ")" << std::endl;
+  }
+  return 0;
+  /*
   testCellIterator<KSpace::Cell>(K, {0, 0});
+  testCellIterator<KSpace::Cell>(K, {-1, 0});
+  testCellIterator<KSpace::Cell>(K, {0, 1});
 
 
   return 0;
@@ -426,7 +910,7 @@ int main(int argc, char** argv)
     trace.info() << "getRotatedBounds<" << 270 << ">: " << PO270.getRotatedBounds(source, NW, SE) << std::endl;
   }
 */
-  return 0;
+  
 /*
   Options options;
 
@@ -675,5 +1159,3 @@ continue;
 
   board.saveWebSVG("stateSurfelBoard.svg");
 */
-  return 0;
-}

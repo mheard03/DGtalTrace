@@ -11,9 +11,11 @@ class MultiCellIterator;
 
 template <class TCell>
 class CellIterator {
-public:
+ public:
   typedef TCell Cell;
   typedef typename Cell::CellularGridSpace KSpace;
+  typedef KSpace::Cell UCell;
+  typedef KSpace::SCell SCell;
   typedef std::forward_iterator_tag iterator_category;
   typedef Cell value_type;
   typedef std::ptrdiff_t difference_type;
@@ -23,15 +25,23 @@ public:
   // End sentinel
   CellIterator() : myKPtr(nullptr), myFlagIsDone(true) {}
 
-  // Begin iterator with explicit bounds
-  CellIterator(DGtal::ConstAlias<KSpace> ks, const Cell &cell)
+  CellIterator(DGtal::ConstAlias<KSpace> ks, const UCell &cell)
       : myKPtr(&ks), myCurrentCell(cell), myLowerCell(ks->uFirst(cell)), myUpperCell(ks->uLast(cell)), myFlagIsDone(false) {}
+
+  CellIterator(DGtal::ConstAlias<KSpace> ks, const SCell &cell)
+      : myKPtr(&ks), myCurrentCell(cell), myLowerCell(ks->sFirst(cell)), myUpperCell(ks->sLast(cell)), myFlagIsDone(false) {}
 
   reference operator*() const { return myCurrentCell; }
   pointer operator->() const { return &myCurrentCell; }
 
-  CellIterator &operator++() {
+  CellIterator &operator++() requires(std::is_same_v<TCell, UCell>) {
     if (!myKPtr->uNext(myCurrentCell, myLowerCell, myUpperCell)) {
+      myFlagIsDone = true;
+    }
+    return *this;
+  }
+  CellIterator &operator++() requires(std::is_same_v<TCell, SCell>){
+    if (!myKPtr->sNext(myCurrentCell, myLowerCell, myUpperCell)) {
       myFlagIsDone = true;
     }
     return *this;
@@ -60,7 +70,6 @@ private:
   Cell myCurrentCell;
   bool myFlagIsDone;
 };
-
 
 
 template <class TCell>

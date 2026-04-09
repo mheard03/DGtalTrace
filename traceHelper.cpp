@@ -20,11 +20,26 @@ namespace {
   auto i = values.begin();
 }
 
-
+/*
 template <typename T, typename U>
 std::ostream& operator<<(std::ostream& os, const std::pair<T, U>& pair) {
   os << "{ " << pair.first << ", " << pair.second << " }";
   return os; 
+}
+*/
+
+template <class Ch, class Tr, class Tuple, std::size_t... Is>
+void print_tuple_impl(std::basic_ostream<Ch, Tr>& os,
+                      const Tuple& t,
+                      std::index_sequence<Is...>) {
+  // juju from https://en.cppreference.com/w/cpp/utility/integer_sequence.html
+  ((os << (Is ? "|" : "") << std::get<Is>(t)), ...);
+}
+
+template <typename... Ts>
+std::ostream& operator<<(std::ostream& os, const std::tuple<Ts...>& tuple) {
+  print_tuple_impl(os, tuple, std::index_sequence_for<Ts...>{});
+  return os;
 }
 
 template <typename T, typename = std::enable_if_t<is_container_v<T>>>

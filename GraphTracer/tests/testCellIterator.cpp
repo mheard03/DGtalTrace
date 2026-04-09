@@ -1,11 +1,10 @@
-#include "../CellIterator.cpp"
 #include <DGtal/base/Assert.h>
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
 #include <DGtal/topology/KhalimskySpaceND.h>
+#include "../CellIterator.cpp"
 
-
-void writeCellIterator(CellIterator<DGtal::Z2i::KSpace::Cell> begin, CellIterator<DGtal::Z2i::KSpace::Cell> end) {
+void writeCellIterator(const CellRange<DGtal::Z2i::KSpace::Cell>& range) {
   using DGtal::trace;
   typedef DGtal::Z2i::KSpace::Cell TCell;
   typedef TCell Cell;
@@ -13,17 +12,17 @@ void writeCellIterator(CellIterator<DGtal::Z2i::KSpace::Cell> begin, CellIterato
 
   // typedef TKSpace KSpace;
   // typedef typename KSpace::Cell Cell;
-  Point first = begin->preCell().coordinates;
+  Point first = range.begin()->preCell().coordinates;
   auto y = first[1];
   
   int i = 0;
-  for (auto it = begin; it != end; ++it) {
-    Point p = it->preCell().coordinates;
+  for (auto it : range) {
+    Point p = it.preCell().coordinates;
     if (p[1] != y) {
       trace.info() << std::endl;
       y = p[1];
     }
-    trace.info() << (p[0] == first[0] ? "  " : ", ") << *it;
+    trace.info() << (p[0] == first[0] ? "  " : ", ") << it;
     if (i++ > 200) {
       trace.info() << std::endl << "Too many cells, stopping output." << std::endl;
       break;
@@ -40,28 +39,11 @@ int testCellIterator(DGtal::ConstAlias<typename TCell::CellularGridSpace> ks, ty
 
   trace.info() << "testCellIterator: " << &ks << " w/ offset " << offset << std::endl;
   Cell c = ks->uFirst(ks->lowerBound() + offset);
-  
-  auto begin = CellIterator<Cell>(ks, c);
-  auto end = CellIterator<Cell>();
-  writeCellIterator(begin, end);
+
+  writeCellIterator(CellRange<TCell>(ks, c));
   trace.info() << std::endl;
+  return 1;
 }
-
-template <typename TKSpace>
-int testCellIterator(DGtal::ConstAlias<TKSpace> ks, const typename TKSpace::Cell& lower, const typename TKSpace::Cell& upper) {
-  using DGtal::trace;
-  typedef TKSpace KSpace;
-  typedef typename KSpace::Cell Cell;
-
-  trace.info() << "testCellIterator: " << &ks << " w/ range " << lower << " to " << upper << std::endl;
-  Cell c = lower;
-  
-  auto begin = CellIterator<Cell>(ks, lower);
-  auto end = CellIterator<Cell>();
-  writeCellIterator(begin, end);
-  trace.info() << std::endl;
-}
-
 /*
 
 template <typename TKSpace>

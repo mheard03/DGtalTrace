@@ -21,16 +21,14 @@ namespace detail {
 
 template <typename TCell, int dim = -1>
 concept CCell = detail::CXXCellBase<TCell, dim> && requires (TCell c) {
-  typename TCell::Cell;
   typename TCell::PreCell;
-  std::same_as<TCell, typename TCell::Cell>;
-  { c.preCell() } -> std::convertible_to<typename TCell::SPreCell>;
+  !std::same_as<TCell, typename TCell::PreCell>;
+  { c.preCell() } -> std::convertible_to<typename TCell::PreCell>;
 };
 template <typename TCell, int dim = -1>
 concept CSCell = detail::CXXCellBase<TCell, dim> && requires (TCell c) {
-  typename TCell::SCell;
   typename TCell::SPreCell;
-  std::same_as<TCell, typename TCell::SCell>;
+  !std::same_as<TCell, typename TCell::SPreCell>;
   { c.preCell() } -> std::convertible_to<typename TCell::SPreCell>;
 };
 
