@@ -2,6 +2,7 @@
 #include <DGtal/helpers/StdDefs.h>
 #include "DGtal/base/Common.h"
 #include <boost/concept/assert.hpp>
+#include "util.cpp"
 
 namespace DGtalTrace {
 template <typename TPoint> requires DGtal::IsAPointVector<TPoint>::value
@@ -57,5 +58,11 @@ struct RectangleND {
   Point myLower;
   Point myUpper;
 };
+
+template <typename TPoint>
+std::ostream& operator<<(std::ostream& out, const RectangleND<TPoint>& object) {
+  object.selfDisplay(out);
+  return out;
+}
 
 } // namespace DGtalTrace

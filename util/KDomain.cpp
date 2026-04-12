@@ -11,14 +11,14 @@
 #include <concepts>
 #include <ranges>
 #include <type_traits>
-#include "../concepts/DGtalConcepts.cpp"
-#include "../concepts/CCell.cpp"
+#include "concepts/DGtalConcepts.cpp"
+#include "concepts/CCell.cpp"
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/concept/assert.hpp>
 #include "DGtal/kernel/BasicPointPredicates.h"
 #include <boost/concept/assert.hpp>
 #include "RectangleND.cpp"
-// #include "../traceHelper.cpp"
+#include "../traceHelper.cpp"
 
 namespace DGtalTrace {
 namespace functors {
@@ -88,7 +88,7 @@ BOOST_CONCEPT_ASSERT (( DGtal::concepts::CPointPredicate<CellPredicate<DGtal::Z2
 // typedef DGtal::Z2i::KSpace TKSpace;
 template <typename TKSpace>
 requires DGtalTrace::concepts::CXXCell<typename TKSpace::Cell>
-class KhalimskyDomainND {
+class KDomain {
  public:
   typedef TKSpace KSpace;
   typedef typename KSpace::PreCellularGridSpace PKSpace;
@@ -124,33 +124,33 @@ class KhalimskyDomainND {
   using ConstIterator = boost::transform_iterator<PointToCell, InnerIterator>;
 
   // ----------------------- Standard services ------------------------------
-  KhalimskyDomainND() : myKPtr(nullptr) {}
+  KDomain() : myKPtr(nullptr) {}
 
-  KhalimskyDomainND(DGtal::ConstAlias<KSpace> ks, const Cell& lowerCell, const PreCell& upperCell)
+  KDomain(DGtal::ConstAlias<KSpace> ks, const Cell& lowerCell, const PreCell& upperCell)
     : myKPtr(&ks),
       myDomain(makeDomain(ks, lowerCell, upperCell)),
       myPredicate(ks)
   {
     using namespace DGtal::functors;
 
-    if (!myKPtr->isValid()) throw std::invalid_argument("KhalimskyDomainND constructor received invalid KSpace");
+    if (!myKPtr->isValid()) throw std::invalid_argument("KDomain constructor received invalid KSpace");
     
     if (!myKPtr->isAnyDimensionPeriodic() || ks->cIsValid(PKSpace::uKCoords(upperCell))) {
       myPredicate.predicate().add(myDomain.predicate());
     }
     else {
       auto rects = splitDomain();
-      // DGtal::trace.info() << "adding predicates for " << rects.size() << " rects: ";
+      DGtal::trace.info() << "adding predicates for " << rects.size() << " rects: ";
       for (auto rect : rects) {
         auto sub = IsWithinPointPredicate(rect.lower(), rect.upper());
         myPredicate.predicate().add(sub);
-        // DGtal::trace.info() << rect << " ";
+        DGtal::trace.info() << rect << " ";
       }
-      // DGtal::trace.info() << std::endl;    
+      DGtal::trace.info() << std::endl;    
     }
   }
 
-  KhalimskyDomainND(const KhalimskyDomainND& other)
+  KDomain(const KDomain& other)
     : myKPtr(other.myKPtr),
       myDomain(other.myDomain),
       myPredicate(other.myPredicate)
@@ -158,7 +158,7 @@ class KhalimskyDomainND {
     ASSERT(myKPtr->isValid());
   }
 
-  KhalimskyDomainND& operator=(const KhalimskyDomainND& other) {
+  KDomain& operator=(const KDomain& other) {
     if (this != &other) {
       myKPtr = other.myKPtr;
       myDomain = other.myDomain;
@@ -200,9 +200,6 @@ class KhalimskyDomainND {
   ConstIterator begin(const Cell& c) const {
     return boost::make_transform_iterator(myDomain.begin(getPoint(c)), PointToCell{myKPtr});
   }
-  ConstIterator begin(const Point& p) const {
-    return boost::make_transform_iterator(myDomain.begin(p), PointToCell{myKPtr});
-  }
 
   ConstIterator end() const {
     return boost::make_transform_iterator(myDomain.end(), PointToCell{myKPtr});
@@ -230,7 +227,7 @@ class KhalimskyDomainND {
   // ----------------------- Display ----------------------------------------
 
   void selfDisplay(std::ostream& out) const {
-    out << "[KhalimskyDomainND] = [" << myDomain.lowerBound() << "]x["
+    out << "[KDomain] = [" << myDomain.lowerBound() << "]x["
         << myDomain.upperBound() << "]";
   }
 
@@ -242,17 +239,17 @@ class KhalimskyDomainND {
     Point upperPoint = PKSpace::uKCoords(upperCell);
     Vector domainExtent = upperCell.coordinates - lowerCell.preCell().coordinates + Point::diagonal(1);
     Vector kExtent = ks->uKCoords(ks->upperCell()) - PKSpace::uKCoords(ks->lowerCell()) + Point::diagonal(1);
-    // DGtal::trace.info() << "kExtent " << kExtent << "; domainExtent: " << domainExtent << std::endl; 
+    DGtal::trace.info() << "kExtent " << kExtent << "; domainExtent: " << domainExtent << std::endl; 
 
-    if (!lowerPoint.isLower(upperPoint)) throw std::invalid_argument("KhalimskyDomainND's upperCell must be above its lowerCell");
-    if (!ks->cIsValid(lowerPoint)) throw std::invalid_argument("KhalimskyDomainND's lowerCell was outside the bounds of the KSpace's lower and upper cells");
-    if (!ks->cIsInside(upperPoint)) throw std::invalid_argument("KhalimskyDomainND's upperCell was outside the KSpace");
+    if (!lowerPoint.isLower(upperPoint)) throw std::invalid_argument("KDomain's upperCell must be above its lowerCell");
+    if (!ks->cIsValid(lowerPoint)) throw std::invalid_argument("KDomain's lowerCell was outside the bounds of the KSpace's lower and upper cells");
+    if (!ks->cIsInside(upperPoint)) throw std::invalid_argument("KDomain's upperCell was outside the KSpace");
 
     for (DGtal::Dimension k = 0; k < KSpace::dimension; k++) {
-      if (kExtent[k] < domainExtent[k]) throw std::invalid_argument("KhalimskyDomainND extent exceeds KSpace size in dimension " + std::to_string(k));
+      if (kExtent[k] < domainExtent[k]) throw std::invalid_argument("KDomain extent exceeds KSpace size in dimension " + std::to_string(k));
       if (kExtent[k] == domainExtent[k]) {
         if (lowerPoint[k] != ks->uKCoords(ks->lowerCell())[k] || upperPoint[k] != ks->uKCoords(ks->upperCell())[k]) {
-          throw std::invalid_argument("KhalimskyDomainND with extent equal to KSpace size must have lower and upper bounds matching the KSpace's lower and upper bounds in dimension " + std::to_string(k));
+          throw std::invalid_argument("KDomain with extent equal to KSpace size must have lower and upper bounds matching the KSpace's lower and upper bounds in dimension " + std::to_string(k));
         }
       }
     }
@@ -263,12 +260,12 @@ class KhalimskyDomainND {
     using namespace DGtal;
     Rect domainRect(myDomain.lowerBound(), myDomain.upperBound());
     Rect kRect(myKPtr->uKCoords(myKPtr->lowerCell()), myKPtr->uKCoords(myKPtr->upperCell()));
-    // trace.info() << "splitDomain (" << kRect << ", " << domainRect << ")" << std::endl;
+    trace.info() << "splitDomain (" << kRect << ", " << domainRect << ")" << std::endl;
 
     if (!myKPtr->isAnyDimensionPeriodic()) return { domainRect };
     if (kRect.contains(domainRect)) return { domainRect };
 
-    // trace.info() << "continuing splitDomain (" << kRect << ", " << domainRect << ")" << std::endl;
+    trace.info() << "continuing splitDomain (" << kRect << ", " << domainRect << ")" << std::endl;
     std::array<std::vector<int>, KSpace::dimension> periodicity = {};
     periodicity.fill({0});
     for (DGtal::Dimension k = 0; k < KSpace::dimension; k++) {
@@ -277,14 +274,14 @@ class KhalimskyDomainND {
 
     std::vector<Rect> rects;
     Vector kExtent = kRect.extent();
-    // trace.info() << "kExtent " << kExtent << std::endl;
+    trace.info() << "kExtent " << kExtent << std::endl;
     for (auto const& tuple : std::apply(std::views::cartesian_product, periodicity)) {
       Vector v = std::make_from_tuple<Vector>(tuple);
       Rect offsetRect = { 
         domainRect.lower() - v * kExtent, 
         domainRect.upper() - v * kExtent
       };
-      // trace.info() << "v" << v << ", offset " << (v * kExtent) << ", offsetRect" << offsetRect << std::endl;
+      trace.info() << "v" << v << ", offset " << (v * kExtent) << ", offsetRect" << offsetRect << std::endl;
       auto intersection = kRect.intersection(offsetRect);
       if (intersection && !intersection->isEmpty()) {
         rects.push_back(*intersection);
@@ -292,10 +289,10 @@ class KhalimskyDomainND {
     }
 
 
-    // for (auto rect : rects) {
-      // trace.info() << rect.lower() << "->" << rect.upper() << "; ";
-    // }
-    // trace.info() << std::endl;
+    for (auto rect : rects) {
+      trace.info() << rect.lower() << "->" << rect.upper() << "; ";
+    }
+    trace.info() << std::endl;
     return rects;
   }
   
@@ -306,7 +303,7 @@ class KhalimskyDomainND {
 };
 
 template <typename TKSpace>
-std::ostream& operator<<(std::ostream& out, const KhalimskyDomainND<TKSpace>& object) {
+std::ostream& operator<<(std::ostream& out, const KDomain<TKSpace>& object) {
   object.selfDisplay(out);
   return out;
 }
@@ -348,4 +345,4 @@ inline bool DGtal::functors::IsWithinPointPredicate<DGtalTrace::concepts::CXXCel
     */
 
 BOOST_CONCEPT_ASSERT((DGtal::concepts::CDomain<DGtal::Z2i::Domain> ));
-// BOOST_CONCEPT_ASSERT((DGtal::concepts::CDomain<DGtalTrace::KhalimskyDomainND<DGtal::Z2i::KSpace>> ));
+// BOOST_CONCEPT_ASSERT((DGtal::concepts::CDomain<DGtalTrace::KDomain<DGtal::Z2i::KSpace>> ));
