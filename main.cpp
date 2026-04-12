@@ -112,7 +112,7 @@
 //#include "KSpaceLinearizer.cpp"
 // #include "PixelNeighborhood.cpp"
 
-#include "util/KDomain.cpp"
+#include "util/kernel/KhalimskyDomainND.cpp"
 #include <boost/polygon/polygon.hpp>
 
 using namespace DGtal;
@@ -386,7 +386,7 @@ constexpr bool contains(const Region& r1, const Region& r2) {
 }
 /*
 template <DGtal::Dimension dimension>
-constexpr std::vector<Region> splitRegions(DGtal::ConstAlias<KSpace> ks, const DGtalTrace::KDomain<KSpace>& domain) {
+constexpr std::vector<Region> splitRegions(DGtal::ConstAlias<KSpace> ks, const DGtalTrace::KhalimskyDomainND<KSpace>& domain) {
   Region domainRegion = { 
     domain.lowerBound().preCell().coordinates, 
     domain.upperBound().preCell().coordinates
@@ -472,7 +472,7 @@ constexpr std::vector<Region> splitRegions(DGtal::ConstAlias<KSpace> ks, const D
     }
     regions.swap(newRegions);
   }
-  typedef DGtalTrace::KDomain<KSpace> KDomain;
+  typedef DGtalTrace::KhalimskyDomainND<KSpace> KDomain;
   const Point kLower = ks->lowerCell().preCell().coordinates;
   const Point kUpper = ks->upperCell().preCell().coordinates;
 
@@ -597,7 +597,7 @@ int main(int argc, char** argv)
       }
     } // pairs population
 
-    typedef DGtalTrace::KDomain<KSpace> KDomain;
+    typedef DGtalTrace::KhalimskyDomainND<KSpace> KDomain;
 
     // bool writtenOne = false;
     for (auto [key, cellPair] : pairs) {
@@ -663,7 +663,7 @@ int main(int argc, char** argv)
     return points;
   }
 
-  typedef DGtalTrace::KDomain<Z2i::KSpace> KDomain;
+  typedef DGtalTrace::KhalimskyDomainND<Z2i::KSpace> KDomain;
   typedef Z2i::KSpace KSpace;
   typedef Z2i::KPreSpace PKSpace;
   typedef PKSpace::Cell PreCell;
