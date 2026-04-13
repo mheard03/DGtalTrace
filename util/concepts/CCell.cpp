@@ -43,6 +43,7 @@ concept CSPreCell = detail::CXXCellBase<TCell, dim> && requires (TCell c) {
   typename TCell::SPreCell;
   std::same_as<TCell, typename TCell::SPreCell>;
   { c.coordinates } -> std::convertible_to<typename TCell::Point>;
+  { c.positive } -> std::same_as<bool>;
 };
 
 // Any signed or unsigned precell
