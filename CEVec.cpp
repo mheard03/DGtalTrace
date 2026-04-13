@@ -9,7 +9,7 @@
 #include <DGtal/kernel/domains/CDomain.h>
 #include <initializer_list>
 #include <type_traits>
-#include "traceHelper.cpp"
+#include "util/traceHelper.cpp"
 
 template <typename TPointVector>
 struct CEVec : public TPointVector::Container {

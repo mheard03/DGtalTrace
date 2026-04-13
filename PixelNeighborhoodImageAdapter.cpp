@@ -20,7 +20,7 @@
 #include <DGtal/helpers/StdDefs.h>
 #include <DGtal/base/Trace.h>
 #include <DGtal/base/ConstAlias.h>
-#include "traceHelper.cpp"
+#include "util/traceHelper.cpp"
 #include "CEVec.cpp"
 
 #include <DGtal/images/Image.h>

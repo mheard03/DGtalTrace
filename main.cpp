@@ -106,13 +106,13 @@
 #include <type_traits>
 #include <vector>
 //#include "faceUtil.cpp"
-//#include "traceHelper.cpp"
+//#include "util/traceHelper.cpp"
 //#include "SvgBoard.cpp"
 //#include "IIGeometricFunctors2.h"
 //#include "KSpaceLinearizer.cpp"
 // #include "PixelNeighborhood.cpp"
 
-#include "util/KDomain.cpp"
+#include "util/KDomain/KDomain.cpp"
 #include <boost/polygon/polygon.hpp>
 
 using namespace DGtal;

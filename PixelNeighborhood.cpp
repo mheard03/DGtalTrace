@@ -19,7 +19,7 @@
 #include <numeric>
 #include <DGtal/helpers/StdDefs.h>
 #include <DGtal/base/Trace.h>
-#include "traceHelper.cpp"
+#include "util/traceHelper.cpp"
 #include "CEVec.cpp"
 
 #include <DGtal/images/Image.h>

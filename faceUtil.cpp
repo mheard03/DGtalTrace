@@ -11,7 +11,7 @@
 #include <vector>
 #include <DGtal/helpers/StdDefs.h>
 #include <DGtal/base/Trace.h>
-#include "traceHelper.cpp"
+#include "util/traceHelper.cpp"
 
 enum DimNames { POINTEL = 0, SURFEL = 1, SPEL = 2, PIXEL = 2 };
 

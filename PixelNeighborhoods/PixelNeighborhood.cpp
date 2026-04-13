@@ -1,7 +1,7 @@
 #pragma once
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
-#include "../traceHelper.cpp"
+#include "../util/traceHelper.cpp"
 #include "../CEVec.cpp"
 #include "CWAnglesEnum.hpp"
 #include "DirectionsEnum.hpp"

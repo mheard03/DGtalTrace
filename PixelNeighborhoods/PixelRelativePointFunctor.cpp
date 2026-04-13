@@ -5,7 +5,7 @@
 #include <DGtal/helpers/StdDefs.h>
 #include <cassert>
 #include <DGtal/images/CImage.h>
-#include "../traceHelper.cpp"
+#include "../util/traceHelper.cpp"
 #include "../CEVec.cpp"
 #include "CWAnglesEnum.hpp"
 #include "DirectionsEnum.hpp"

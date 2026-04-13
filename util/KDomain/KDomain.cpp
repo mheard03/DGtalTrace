@@ -11,14 +11,14 @@
 #include <concepts>
 #include <ranges>
 #include <type_traits>
-#include "concepts/DGtalConcepts.cpp"
-#include "concepts/CCell.cpp"
+#include "../concepts/DGtalConcepts.cpp"
+#include "../concepts/CCell.cpp"
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/concept/assert.hpp>
 #include "DGtal/kernel/BasicPointPredicates.h"
 #include <boost/concept/assert.hpp>
 #include "RectangleND.cpp"
-#include "../traceHelper.cpp"
+#include "../util/traceHelper.cpp"
 
 namespace DGtalTrace {
 namespace functors {
