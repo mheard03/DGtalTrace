@@ -1,16 +1,15 @@
 #pragma once
-#include <DGtal/base/Assert.h>
-#include <boost/iostreams/filter/symmetric.hpp>
 #include <concepts>
-#include <type_traits>
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
+#include <DGtal/base/Assert.h>
+#include "BaseConcepts.cpp"
 #include "../DimensionOf.cpp"
 
 namespace DGtalTrace {
 namespace concepts {
 namespace detail {
-  template <typename TCell, int dim = -1>
+  template <typename TCell, DGtal::Dimension dim = 0>
   concept CXXCellBase = requires {
     typename TCell::Integer;
     typename TCell::UnsignedInteger;
@@ -18,14 +17,11 @@ namespace detail {
     typename TCell::PreCellularGridSpace;
     typename TCell::CellularGridSpace;
     HasSameDimension<TCell, typename TCell::Point>;
-    dim == -1 || DimensionOf<TCell> == dim;
+    requires (dim == 0 || DimensionOf<TCell> == dim);
   } && requires (TCell c) {
     c.preCell();
     c.preCell().coordinates;
   };
-
-  template <typename T, typename U>
-  concept IsBasically = std::same_as<std::remove_cvref_t<T>, std::remove_cvref_t<U>>;
 
   template <typename TCell, int is_signed = -1>
   concept CCellHasSignedness = requires {
@@ -51,25 +47,25 @@ namespace detail {
     requires is_precell == CCellIsPreCell<TCell>;
   };  
 
-  template <typename TCell, int dim = -1, int is_signed = -1, int is_precell = -1>
+  template <typename TCell, int dim = 0, int is_signed = -1, int is_precell = -1>
   concept CCellProps = CXXCellBase<TCell, dim> 
        && CCellHasSignedness<TCell, is_signed>
        && CCellHasPrecellness<TCell, is_precell>;
  
 } // namespace detail
 
-template <typename TCell, int dim = -1> concept CXXCell =   detail::CCellProps<TCell, dim, -1, -1>;
-template <typename TCell, int dim = -1> concept CXCell =    detail::CCellProps<TCell, dim, -1,  0>;
-template <typename TCell, int dim = -1> concept CXPreCell = detail::CCellProps<TCell, dim, -1,  1>;
-template <typename TCell, int dim = -1> concept CUXCell =   detail::CCellProps<TCell, dim,  0, -1>;
-template <typename TCell, int dim = -1> concept CUCell =    detail::CCellProps<TCell, dim,  0,  0>;
-template <typename TCell, int dim = -1> concept CUPreCell = detail::CCellProps<TCell, dim,  0,  1>;
-template <typename TCell, int dim = -1> concept CSXCell =   detail::CCellProps<TCell, dim,  1, -1>;
-template <typename TCell, int dim = -1> concept CSCell =    detail::CCellProps<TCell, dim,  1,  0>;
-template <typename TCell, int dim = -1> concept CSPreCell = detail::CCellProps<TCell, dim,  1,  1>;
+template <typename TCell, int dim = 0> concept CXXCell =   detail::CCellProps<TCell, dim, -1, -1>;
+template <typename TCell, int dim = 0> concept CXCell =    detail::CCellProps<TCell, dim, -1,  0>;
+template <typename TCell, int dim = 0> concept CXPreCell = detail::CCellProps<TCell, dim, -1,  1>;
+template <typename TCell, int dim = 0> concept CUXCell =   detail::CCellProps<TCell, dim,  0, -1>;
+template <typename TCell, int dim = 0> concept CUCell =    detail::CCellProps<TCell, dim,  0,  0>;
+template <typename TCell, int dim = 0> concept CUPreCell = detail::CCellProps<TCell, dim,  0,  1>;
+template <typename TCell, int dim = 0> concept CSXCell =   detail::CCellProps<TCell, dim,  1, -1>;
+template <typename TCell, int dim = 0> concept CSCell =    detail::CCellProps<TCell, dim,  1,  0>;
+template <typename TCell, int dim = 0> concept CSPreCell = detail::CCellProps<TCell, dim,  1,  1>;
 
-template <typename TCell, int dim = -1> concept CCell = CUCell<TCell, dim>;
-template <typename TCell, int dim = -1> concept CPreCell = CUPreCell<TCell, dim>;
+template <typename TCell, int dim = 0> concept CCell = CUCell<TCell, dim>;
+template <typename TCell, int dim = 0> concept CPreCell = CUPreCell<TCell, dim>;
 
 namespace {
   using namespace DGtal::Z2i;

@@ -112,8 +112,13 @@
 //#include "KSpaceLinearizer.cpp"
 // #include "PixelNeighborhood.cpp"
 
+/*
 #include "util/KDomain/KDomain.cpp"
 #include <boost/polygon/polygon.hpp>
+#include "util/KDomain/MakeCellFromKCoordsPointFunctor.cpp"
+*/
+// #include "util/KDomain/CellRange.cpp"
+#include "util/concepts/DGtalTraceConcepts.cpp"
 
 using namespace DGtal;
 
@@ -554,7 +559,22 @@ int main(int argc, char** argv)
     }
   }
 
+  // auto r = DGtalTrace::CellRange<KSpace::Cell>::create(testSpaces[0]);
+  
+  
+/*
+  auto fk = DGtal::functors::MakeCellFromKCoordsPointFunctor<KSpace::Cell>(testSpaces[0]);
+  trace.info() << "fk " << fk({1, 1}) << std::endl;
+  auto fsk = DGtal::functors::MakeCellFromKCoordsPointFunctor<KSpace::SCell>(testSpaces[0], false);
+  trace.info() << "fsk " << fsk({1, 1}) << std::endl;
+  auto fpk = DGtal::functors::MakeCellFromKCoordsPointFunctor<KSpace::PreCell>();
+  trace.info() << "fpk " << fpk({1, 1}) << std::endl;
+  auto fspk = DGtal::functors::MakeCellFromKCoordsPointFunctor<KSpace::SPreCell>(false);
+  trace.info() << "fspk " << fspk({1, 1}) << std::endl;
 
+  return 0;
+
+  
   using namespace Z2i;
 
   for (auto ks : testSpaces) {
@@ -614,7 +634,7 @@ int main(int argc, char** argv)
     trace.endBlock();   // kspace
     trace.info() << std::endl;
   }
-    
+    */
   return 0;
 }
     /*
