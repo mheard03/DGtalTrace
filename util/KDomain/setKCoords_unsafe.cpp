@@ -2,24 +2,21 @@
 #include <DGtal/base/Common.h>
 #include <DGtal/base/ConstAlias.h>
 #include <DGtal/helpers/StdDefs.h>
-#include <DGtal/topology/CCellularGridSpaceND.h>
 #include <stdexcept>
-#include "concepts/CCell.cpp"
-#include "concepts/CKSpaceLite.cpp"
-#include "CellTypeTraits.cpp"
-#include <memory>
+#include "../concepts/CCell.cpp"
+#include "../concepts/CXCellularGridSpaceND.cpp"
 
 namespace DGtalTrace {
 
 namespace detail {
 
-template <concepts::CKXSpaceLite KSpace>
+template <concepts::CXCellularGridSpaceND KSpace>
 const KSpace ksInfinite;
 
 } // end namespace detail
 
 
-template <concepts::CKXSpaceLite KSpace>
+template <concepts::CXCellularGridSpaceND KSpace>
 const KSpace& getInfinite() {
   return detail::ksInfinite<KSpace>;
 }

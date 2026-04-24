@@ -1,13 +1,13 @@
 #pragma once
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
-#include <DGtal/topology/CCellularGridSpaceND.h>
+#include <boost/concept/assert.hpp>
 #include <concepts>
 #include <ranges>
 #include <utility>
-#include "CellTypeTraits.cpp"
-#include "concepts/CCell.cpp"
-#include "concepts/CKSpaceLite.cpp"
+#include "../CellTypeTraits.cpp"
+#include "../concepts/CCell.cpp"
+#include "../concepts/CXCellularGridSpaceND.cpp"
 #include "setKCoords_unsafe.cpp"
 
 namespace DGtalTrace {
@@ -19,7 +19,7 @@ concept is_among = (std::same_as<T, U> || ...);
 
 } // end namespace detail
 
-template <concepts::CKXSpaceLite TKSpace>
+template <concepts::CXCellularGridSpaceND TKSpace>
 class KCoordsAdjuster {
  public:  
   typedef TKSpace KSpace;
@@ -32,7 +32,7 @@ class KCoordsAdjuster {
 
  public:  
   KCoordsAdjuster(DGtal::ConstAlias<KSpace> ks) : myKPtr(&ks) {}
-  KCoordsAdjuster() requires concepts::CKPreSpaceLite<KSpace> : KCoordsAdjuster(infiniteKPtr) {}
+  KCoordsAdjuster() requires concepts::CPreCellularGridSpaceND<KSpace> : KCoordsAdjuster(infiniteKPtr) {}
 
   template <concepts::CXPreCell TCell>
   requires std::same_as<KPreSpace, typename TCell::PreCellularGridSpace>

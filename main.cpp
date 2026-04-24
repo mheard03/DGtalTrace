@@ -1,18 +1,18 @@
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
-#include "util/KCoordsAdjuster.cpp"
-#include "util/concepts/CKSpaceLite.cpp"
+#include "util/KDomain/KCoordsAdjuster.cpp"
+#include "util/concepts/CXCellularGridSpaceND.cpp"
 
 using namespace DGtal;
 using namespace DGtalTrace;
 
-template <DGtalTrace::concepts::CXXCell TCell, DGtalTrace::concepts::CKXSpaceLite TKSpace>
+template <DGtalTrace::concepts::CXXCell TCell, DGtalTrace::concepts::CXCellularGridSpaceND TKSpace>
 void printCell(const TCell& cell, const TKSpace& ks, const std::string& prefix = "") {
   if (prefix.size() > 0) {
     trace.info() << prefix;
   }
   trace.info() << cell;
-  if constexpr (DGtalTrace::concepts::CKSpaceLite<TKSpace>) {
+  if constexpr (DGtalTrace::concepts::CCellularGridSpaceND<TKSpace>) {
     trace.info() << " valid:" << ks.uIsValid(cell) << ", inside:" << ks.uIsInside(cell);
   }
   trace.info() << std::endl;
