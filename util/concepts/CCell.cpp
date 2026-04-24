@@ -1,4 +1,5 @@
 #pragma once
+#include <DGtal/topology/KhalimskySpaceND.h>
 #include <concepts>
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
@@ -16,36 +17,42 @@ namespace detail {
     typename TCell::Point;
     typename TCell::PreCellularGridSpace;
     typename TCell::CellularGridSpace;
-    HasSameDimension<TCell, typename TCell::Point>;
+    requires HasSameDimension<TCell, typename TCell::Point>;
     requires (dim == 0 || DimensionOf<TCell> == dim);
   } && requires (TCell c) {
     c.preCell();
     c.preCell().coordinates;
   };
 
+  template <typename TCell>
+  constexpr bool CellIsSigned = [] {
+    if constexpr (requires (TCell c) { 
+      { c.preCell() } -> IsBasically<typename TCell::PreCellularGridSpace::Cell>;
+    }) return false;
+    if constexpr (requires (TCell c) {
+      { c.preCell() } -> IsBasically<typename TCell::PreCellularGridSpace::SCell>; 
+    }) return true;
+  }();
+
   template <typename TCell, int is_signed = -1>
   concept CCellHasSignedness = requires {
     requires is_signed == -1;
-  } || requires (TCell c) {
-    requires is_signed == false;
-    { c.preCell() } -> IsBasically<typename TCell::PreCell>;
-  } || requires (TCell c) {
-    requires is_signed == true;
-    { c.preCell() } -> IsBasically<typename TCell::SPreCell>;
+  } || requires { 
+    requires CellIsSigned<TCell> == (bool)is_signed; 
   };
 
   template <typename TCell>
-  concept CCellIsPreCell = requires (TCell c) {
-    std::same_as<typename TCell::CellularGridSpace, typename TCell::PreCellularGridSpace>;
-    { c.preCell() } -> IsBasically<TCell>;
+  constexpr bool CellIsPreCell = requires (TCell c) { 
+      std::same_as<typename TCell::CellularGridSpace, typename TCell::PreCellularGridSpace>;
+      { c.preCell() } -> IsBasically<TCell>;
   };
 
   template <typename TCell, int is_precell = -1>
   concept CCellHasPrecellness = requires {
     requires is_precell == -1;
-  } || requires (TCell c) {
-    requires is_precell == CCellIsPreCell<TCell>;
-  };  
+  } || requires {
+    requires CellIsPreCell<TCell> == is_precell;
+  };
 
   template <typename TCell, int dim = 0, int is_signed = -1, int is_precell = -1>
   concept CCellProps = CXXCellBase<TCell, dim> 
