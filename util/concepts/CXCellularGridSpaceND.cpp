@@ -91,6 +91,16 @@ template <typename T, int dim = 0>
 concept CXCellularGridSpaceND =
     CCellularGridSpaceND<T, dim> || CPreCellularGridSpaceND<T, dim>;
 
+template <typename TCell, typename KPreSpace>
+concept CHasKPreSpace = CXXCell<TCell> && 
+                        CPreCellularGridSpaceND<KPreSpace> &&
+                        std::same_as<KPreSpace, typename TCell::PreCellularGridSpace>;
+
+template <typename TCell, typename KXSpace>
+concept CHasKSpace = CXXCell<TCell> && 
+                     CXCellularGridSpaceND<KXSpace> &&
+                     std::same_as<KXSpace, typename TCell::CellularGridSpace>;
+
 namespace {
 using namespace DGtal::Z2i;
 
@@ -101,6 +111,23 @@ static_assert((CCellularGridSpaceND<KSpace> == true));
 static_assert((CCellularGridSpaceND<KPreSpace> == false));
 static_assert((CPreCellularGridSpaceND<KPreSpace> == true));
 static_assert((CPreCellularGridSpaceND<KSpace> == false));
+
+static_assert((CHasKSpace<KSpace::Cell, KSpace> == true));
+static_assert((CHasKSpace<KSpace::SCell, KSpace> == true));
+static_assert((CHasKSpace<KSpace::PreCell, KSpace> == false));
+static_assert((CHasKSpace<KSpace::SPreCell, KSpace> == false));
+static_assert((CHasKSpace<KPreSpace::Cell, KPreSpace> == true));
+static_assert((CHasKSpace<KPreSpace::SCell, KPreSpace> == true));
+static_assert((CHasKSpace<DGtal::Z3i::KSpace::Cell, KSpace> == false));
+
+static_assert((CHasKPreSpace<KSpace::Cell, KPreSpace> == true));
+static_assert((CHasKPreSpace<KSpace::SCell, KPreSpace> == true));
+static_assert((CHasKPreSpace<KSpace::PreCell, KPreSpace> == true));
+static_assert((CHasKPreSpace<KSpace::SPreCell, KPreSpace> == true));
+static_assert((CHasKPreSpace<KPreSpace::Cell, KPreSpace> == true));
+static_assert((CHasKPreSpace<KPreSpace::SCell, KPreSpace> == true));
+static_assert((CHasKPreSpace<DGtal::Z3i::KSpace::Cell, KPreSpace> == false));
+
 } // anonymous namespace
 
 } // namespace concepts

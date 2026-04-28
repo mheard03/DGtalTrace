@@ -2,6 +2,9 @@
 #include <DGtal/helpers/StdDefs.h>
 #include "util/KDomain/KCoordsAdjuster.cpp"
 #include "util/concepts/CXCellularGridSpaceND.cpp"
+#include "util/KDomain/KRectangle.cpp"
+#include "util/KDomain/CellIterator.cpp"
+#include "util/traceHelper.cpp"
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -29,21 +32,43 @@ int main(int argc, char** argv) {
   ksPeriodic.init({0,0}, {5,5}, KSpace::Closure::PERIODIC);
   
   
-  KSpace ks = ksFinite;
-  KCoordsAdjuster<KSpace> ksa(ks);
-  Cell cell;
-  printCell(cell, ks, "initial:");
-  ksa.setKCoords(cell, {5, 5});
-  printCell(cell, ks, "after move 1:");
-  ksa.setKCoords(cell, {50, 50});
-  printCell(cell, ks, "after move 2:");
-  if constexpr (DGtalTrace::concepts::CXPreCell<Cell>) {
-    //KSpace::PreCellularGridSpace::uSetKCoords(cell., {50, 50});
-    printCell(cell, ks, "after uSetKCoords:");
+  KSpace ks = ksPeriodic;
+  trace.info() << "ks: " << ks << std::endl;
+  trace.info() << "  lowerCell: " << ks.lowerCell() << std::endl;
+  trace.info() << "  upperCell: " << ks.upperCell() << std::endl;  
+
+  KRectangle<KSpace> kRect(ks);
+  trace.info() << "kRect: " << kRect << std::endl;
+  trace.info() << "  total extent: " << kRect.extent() << std::endl;
+  trace.info() << "  cell extent: " << kRect.extent(ks.lowerCell()) << std::endl;
+
+
+  typedef DGtalTrace::CellIterator<SCell> CIS;
+  CIS i(ks, ks.sCell({0, 0}, KSpace::NEG), ks.sCell({10, 10}, KSpace::NEG));
+  CIS end;
+  std::vector<SCell> sCells;
+  std::copy(i, end, std::back_inserter(sCells));
+  trace.info() << "naked: " << std::endl;
+  for (auto cell : sCells) {
+    trace.info() << cell; 
   }
-  if constexpr (DGtalTrace::concepts::CXCell<Cell>) {
-    ks.uSetKCoords(cell, {50, 50});
-    printCell(cell, ks, "after uSetKCoords:");
+  trace.info() << std::endl;
+
+
+
+  DGtalTrace::CellRange<Cell> crRect(ksFinite.uCell({1, 1}), kRect);
+  trace.info() << "crRect: " << crRect << std::endl;
+  for (auto cell : crRect) {
+    trace.info() << cell; 
   }
+  trace.info() << std::endl;
+
+  DGtalTrace::CellRange<SCell> crKS(ks.sCell({0, 0}, KSpace::NEG), ks);
+  trace.info() << "crKS: " << crKS << std::endl;
+  for (auto cell : crKS) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl; 
+
 }
 
