@@ -74,6 +74,11 @@ template <typename TCell, int dim = 0> concept CSPreCell = detail::CCellProps<TC
 template <typename TCell, int dim = 0> concept CCell = CUCell<TCell, dim>;
 template <typename TCell, int dim = 0> concept CPreCell = CUPreCell<TCell, dim>;
 
+template <typename TCell, typename UCell>
+concept CSameCellSignedness = CXXCell<TCell> && CXXCell<UCell, DimensionOf<TCell>> && requires {
+  requires detail::CellIsSigned<TCell> == detail::CellIsSigned<UCell>;
+};
+
 namespace {
   using namespace DGtal::Z2i;
 
@@ -113,6 +118,12 @@ namespace {
   static_assert((CXXCell<KSpace::SPreCell, 2> == true));
   static_assert((CXXCell<KSpace::Cell, 2> == true));
   static_assert((CXXCell<KSpace::PreCell, 2> == true));
+
+  static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::PreCell> == true));
+  static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::Cell> == true));
+  static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::SPreCell> == false));
+  static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::SCell> == false));
+  
 } // anonymous namespace
 
 } // namespace concepts

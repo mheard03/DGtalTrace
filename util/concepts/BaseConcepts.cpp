@@ -21,6 +21,9 @@ concept CPoint = requires {
   requires (dim == 0 || DimensionOf<T> == dim);
 };
 */
+template <bool T>
+concept CBool = T;
+
 template <typename T>
 concept CIsTrue = std::same_as<T, std::true_type> || (requires { T::value; } && T::value);
 
@@ -31,7 +34,11 @@ concept CIsFalse = std::same_as<T, std::false_type> || (requires { T::value; std
 template <typename T, DGtal::Dimension dim = 0>
 concept CPoint = CIsTrue<DGtal::IsAPointVector<T>> && requires { requires (dim == 0 || DimensionOf<T> == dim); };
 
+template<typename T, typename ... U>
+concept CSameAsAny = (std::same_as<T, U> || ...);
 
+template<typename T, typename ... U>
+concept CSameAsAll = (std::same_as<T, U> && ...);
 
 namespace {
   using namespace DGtal::Z2i;

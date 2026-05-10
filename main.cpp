@@ -1,10 +1,13 @@
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
+#include <ranges>
 #include "util/KDomain/KCoordsAdjuster.cpp"
 #include "util/concepts/CXCellularGridSpaceND.cpp"
 #include "util/KDomain/KRectangle.cpp"
 #include "util/KDomain/CellIterator.cpp"
+#include "util/KDomain/CellRange.cpp"
 #include "util/traceHelper.cpp"
+#include "util/makeRange.cpp"
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -39,9 +42,6 @@ int main(int argc, char** argv) {
 
   KRectangle<KSpace> kRect(ks);
   trace.info() << "kRect: " << kRect << std::endl;
-  trace.info() << "  total extent: " << kRect.extent() << std::endl;
-  trace.info() << "  cell extent: " << kRect.extent(ks.lowerCell()) << std::endl;
-
 
   typedef DGtalTrace::CellIterator<SCell> CIS;
   CIS i(ks, ks.sCell({0, 0}, KSpace::NEG), ks.sCell({10, 10}, KSpace::NEG));
@@ -52,23 +52,88 @@ int main(int argc, char** argv) {
   for (auto cell : sCells) {
     trace.info() << cell; 
   }
-  trace.info() << std::endl;
+  trace.info() << std::endl << std::endl; 
 
 
 
-  DGtalTrace::CellRange<Cell> crRect(ksFinite.uCell({1, 1}), kRect);
+  DGtalTrace::detail::CellRange_single<Cell> crRect(ksFinite.uCell({1, 1}), kRect);
   trace.info() << "crRect: " << crRect << std::endl;
   for (auto cell : crRect) {
     trace.info() << cell; 
   }
-  trace.info() << std::endl;
+  trace.info() << std::endl << std::endl; 
 
-  DGtalTrace::CellRange<SCell> crKS(ks.sCell({0, 0}, KSpace::NEG), ks);
-  trace.info() << "crKS: " << crKS << std::endl;
-  for (auto cell : crKS) {
+  const SCell cell1 = ks.sCell({1, 1}, KSpace::NEG);
+  const SCell cell2 = ks.sCell({1, 1}, KSpace::POS);
+
+  CellRange<SCell> crJoined({cell1, cell2}, ks);
+  trace.info() << "crJoined: " << crJoined.size() <<  std::endl;
+  for (auto cell : crJoined) {
     trace.info() << cell; 
   }
-  trace.info() << std::endl; 
+  trace.info() << std::endl << std::endl; 
 
+  typedef KCoordsAdjuster<KSpace> KCA;
+  const auto filter = [](const SCell& cell) -> bool { return KCA::dim(cell) == 1 && KCA::sign(cell) == KSpace::POS; };
+  auto templateCells = CellRange<SCell>::allStartCells([](const SCell& cell) -> bool { return KCA::dim(cell) == 1 && KCA::sign(cell) == KSpace::POS; });
+
+  CellRange<SCell> crJoined2(templateCells, ks);
+  trace.info() << "crJoined2: " << crJoined2.size() <<  std::endl;
+  for (auto cell : crJoined2) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+
+  /*
+  std::vector<DGtalTrace::detail::CellRange_single<SCell>> tmp = { crKN, crKP };
+
+  CellRange crJoined({crKN, crKP});
+  trace.info() << "crJoined: " << crJoined.size() <<  std::endl;
+  for (auto cell : crJoined) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+
+  std::vector<std::vector<Cell>> tmp2;
+  for (auto i = ks.min(0); i <= ks.max(0); i++) {
+    std::vector<Cell> cols;
+    for (auto j = ks.min(1); j <= ks.max(1); j++) {
+      cols.push_back(ks.uCell({i, j}));
+    }
+    tmp2.push_back(cols);
+  }
+  CellRange crJoined2(tmp2);
+  trace.info() << "crJoined2: " << crJoined2.size() << std::endl;
+  for (auto cell : crJoined2) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+
+
+
+  trace.info() << "allStartCells<Cell>: " << std::endl;
+  for (auto cell : CellRange<Cell>::allStartCells()) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+  
+  trace.info() << "allStartCells<SCell>: " << std::endl;
+  for (auto cell : CellRange<SCell>::allStartCells()) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+
+  trace.info() << "allStartCells<Cell>(1): " << std::endl;
+  for (auto cell : CellRange<Cell>::allStartCells(1)) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+  
+  trace.info() << "allStartCells<SCell>(1): " << std::endl;
+  for (auto cell : CellRange<SCell>::allStartCells(1)) {
+    trace.info() << cell; 
+  }
+  trace.info() << std::endl << std::endl; 
+  */
 }
 
