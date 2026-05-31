@@ -2,7 +2,6 @@
 #include <DGtal/base/Common.h>
 #include <DGtal/base/ConceptUtils.h>
 #include "DGtal/base/ConstAlias.h"
-#include <DGtal/helpers/StdDefs.h>
 #include <cassert>
 #include <DGtal/images/CImage.h>
 #include "../util/traceHelper.cpp"

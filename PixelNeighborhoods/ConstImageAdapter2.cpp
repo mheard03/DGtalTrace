@@ -1,7 +1,6 @@
 #pragma once
 
 #include <DGtal/base/BasicFunctors.h>
-#include <DGtal/helpers/StdDefs.h>
 #include <cassert>
 #include <limits>
 #if defined(ConstImageAdapter2_RECURSES)

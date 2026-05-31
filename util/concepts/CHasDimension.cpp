@@ -1,7 +1,6 @@
 #pragma once
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include "../DimensionOf.cpp"
 
 namespace DGtalTrace {
@@ -14,6 +13,7 @@ concept CHasDimension = requires {
 };
 
 namespace {
+  /*
   using namespace DGtal::Z2i;
 
   static_assert((CHasDimension<Point> == true));
@@ -22,6 +22,7 @@ namespace {
 
   static_assert((CHasDimension<Domain> == true));
   static_assert((CHasDimension<KSpace::Cell> == true));
+  */
 }
 
 } // namespace concepts

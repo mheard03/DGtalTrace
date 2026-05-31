@@ -1,7 +1,6 @@
 #pragma once
 #include <iterator>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/topology/KhalimskySpaceND.h>
 #include <type_traits>
 // #include "../util/KCellConstraints.cpp"

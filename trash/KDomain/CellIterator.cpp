@@ -28,17 +28,16 @@ public:
   CellIterator() : myKPtr(nullptr), myDoneFlag(true) {}
 
   // Begin iterator (KSpace)
-  CellIterator(DGtal::ConstAlias<KSpace> ks, const Cell &lower,
-                     const Cell &upper)
+  CellIterator(DGtal::ConstAlias<KSpace> ks, const Cell &lower, const Cell &upper)
     requires concepts::CXCell<Cell>
-      : myKPtr(&ks), myLower(lower), myUpper(upper), myCell(lower),
-        myDoneFlag(false) {}
+      : myKPtr(&ks), myCell(lower),
+        myLower(lower), myUpper(upper), myDoneFlag(false) {}
 
   // Begin iterator (KPreSpace)
   CellIterator(const Cell &lower, const Cell &upper)
     requires concepts::CXPreCell<Cell>
-      : myKPtr(nullptr), myLower(lower), myUpper(upper), myCell(lower),
-        myDoneFlag(false) {}
+      : myKPtr(nullptr), myCell(lower),
+        myLower(lower), myUpper(upper), myDoneFlag(false) {}
 
   reference operator*() const { return myCell; }
 

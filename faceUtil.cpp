@@ -9,7 +9,6 @@
 #include <type_traits>
 #include <unistd.h>
 #include <vector>
-#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/base/Trace.h>
 #include "util/traceHelper.cpp"
 
@@ -43,10 +42,6 @@ template <typename KSpace, typename Cell>
 std::vector<Cell> uPointelFaces(const KSpace& K, const Cell& startCell) {
   return uAllFaces(K, startCell, 0);
 }
-
-template<uint fromDim, uint toDim> constexpr uint maxFaceCount = (fromDim == toDim) ? 1 : 4;
-template<> constexpr uint maxFaceCount<DimNames::SURFEL, DimNames::POINTEL> = 2;
-template<> constexpr uint maxFaceCount<DimNames::SURFEL, DimNames::SPEL> = 2;
 
 using namespace DGtal::Z2i;
 void writeCells(std::vector<std::string>& names, std::vector<PreCell>& cells) {

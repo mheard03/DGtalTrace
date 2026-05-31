@@ -4,11 +4,13 @@
 #include <exception>
 #include <initializer_list>
 #include <iterator>
+#include <numeric>
 #include <optional>
 #include <ranges>
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
 #include <stdexcept>
+#include <string>
 #include <vector>
 #include "../concepts/CCell.cpp"
 #include "../concepts/CXCellularGridSpaceND.cpp"
@@ -59,75 +61,84 @@ class CellRange  {
  private:
   // typedef DGtal::Z2i::KSpace::Cell Cell;
   typedef TCell Cell;
+  typedef TCell::Point Point;
   typedef detail::CellRange_single<TCell> InnerRange;
   typedef Cell::CellularGridSpace KSpace;
   typedef Cell::PreCellularGridSpace KPreSpace;
   typedef CellTypeTraits<Cell>::PreSelf  PreSelf;
-  typedef CellTypeTraits<Cell>::UPreSelf UPreSelf;  
-  typedef CellTypeTraits<Cell>::SPreSelf SPreSelf;  
-  typedef InnerRange::KRect KRect;
-  typedef KCoordsAdjuster<KSpace> KCA;
-  static inline const KCA myAdjuster = KCA::infinite();
+  // typedef CellTypeTraits<Cell>::UPreSelf UPreSelf;  
+  // typedef CellTypeTraits<Cell>::SPreSelf SPreSelf;  
 
   const std::vector<InnerRange> myRanges;
   typedef decltype(myRanges | std::views::join) View;
-  const View myJoinedRange;  
+  const View myJoinedRange;
+  
+  typedef std::array<PreSelf, 2> RangeBounds;
 
  protected:
   CellRange(const std::vector<InnerRange> &ranges)
       : myRanges(ranges), myJoinedRange(myRanges) {}
 
+  struct SubRange {
+    Cell templateCell;
+    Point firstDCoord;
+    Point lastDCoord;
+
+  };
+
  public:
-  /*
-  template <typename TCells>
-  requires detail::CCellRange_RangeInput<TCells, Cell>
-  explicit CellRange(const TCells &templateCells, DGtal::ConstAlias<KSpace> ks)
-      : CellRange(makeRanges(templateCells, ks)) {}
 
-  CellRange(const std::initializer_list<Cell> &templateCells, DGtal::ConstAlias<KSpace> ks)
-      : CellRange(std::vector<Cell>{templateCells}, ks) {}
-
-  CellRange(const TCell &templateCell, DGtal::ConstAlias<KSpace> ks)
-      : CellRange({ templateCell }, ks) {}
-
-  CellRange(const DGtal::Dimension dim, DGtal::ConstAlias<KSpace> ks)
-      : CellRange(allStartCells(dim), ks) {}
-  */
 
   template <typename TCells>
   requires CCellRange_RangeInput<TCells, Cell>
-  explicit CellRange(const TCells &templateCells, const KRect& rect)
-      : CellRange(makeRanges(templateCells, rect)) {}
+  CellRange(const TCells &templateCells, DGtal::ConstAlias<KSpace> ks)
+      : CellRange(makeRanges(templateCells, rect, ks)) {}
+
 
   template <typename TCells>
   requires CCellRange_RangeInput<TCells, Cell>
-  explicit CellRange(TCells &templateCells, const KRect& rect)
-      : CellRange(makeRanges(templateCells, rect)) {}
+  explicit CellRange(const TCells &templateCells, const KRect& rect, DGtal::ConstAlias<KSpace> ks = detail::ksInfinite<KSpace>)
+      : CellRange(makeRanges(templateCells, rect, ks)) {}
 
-  CellRange(const std::initializer_list<Cell> &templateCells, const KRect& rect)
-      : CellRange(std::vector<Cell>{templateCells}, rect) {}
+  template <typename TCells>
+  requires CCellRange_RangeInput<TCells, Cell>
+  explicit CellRange(TCells &templateCells, const KRect& rect, DGtal::ConstAlias<KSpace> ks = detail::ksInfinite<KSpace>)
+      : CellRange(makeRanges(templateCells, rect, ks)) {}
 
-  CellRange(const Cell &templateCell, const KRect& rect)
-      : CellRange({ templateCell }, rect) {}
+  CellRange(const std::initializer_list<Cell> &templateCells, const KRect& rect, DGtal::ConstAlias<KSpace> ks = detail::ksInfinite<KSpace>)
+      : CellRange(std::vector<Cell>{templateCells}, rect, ks) {}
+
+  CellRange(const Cell &templateCell, const KRect& rect, DGtal::ConstAlias<KSpace> ks = detail::ksInfinite<KSpace>)
+      : CellRange({ templateCell }, rect, ks) {}
 
  private:
-  static std::vector<InnerRange> makeRanges(std::ranges::range auto& templateCells, const auto& ksOrRect) {
+  static std::vector<InnerRange> makeRanges(std::ranges::range auto& templateCells, const KRect& rect, const KSpace& ks) {
     std::vector<InnerRange> result;
     for (auto cell : templateCells) {
-      result.push_back(InnerRange(cell, ksOrRect));
+      result.push_back(InnerRange(cell, rect, ks));
     }
     return result;    
   }
 
+ private:
+  RangeBounds 
+
  public:
-  std::ranges::iterator_t<View> begin() const { return myJoinedRange.begin(); }
-  std::ranges::iterator_t<View> end() const { return myJoinedRange.end(); }
   size_t size() const { 
-    size_t size = 0;
+    if (myRanges.size() == 0) return 0;
+    size_t size = 0;    
     for (auto range : myRanges) {
       size += std::ranges::size(range);
     }
     return size;
+  }
+
+  std::ranges::iterator_t<View> begin() const { 
+    checkValid();
+    return myJoinedRange.begin(); 
+  }
+  std::ranges::iterator_t<View> end() const { 
+    return myJoinedRange.end(); 
   }
 
   static std::vector<Cell> allStartCells() {
@@ -143,6 +154,28 @@ class CellRange  {
       }
     }
     return result;
+  }
+
+  void selfDisplay(std::ostream& out) const {
+    std::string strSize = "[" + std::to_string(size()) + "] ";
+    out << "[CellRange" << strSize << " { ";
+    for (int i = 0; i < myRanges.size(); i++) {
+      if (i > 0) out << ", ";
+      out << myRanges[i];
+    }
+    out << " }]";
+  }
+
+  void checkValid() const {
+    for (int i = 0; i < myRanges.size(); i++) {
+      try {
+        myRanges[i].checkValid();
+      }
+      catch (std::out_of_range e) {
+        std::string msg = "myRanges[" + std::to_string(i) + "]: " + e.what();
+        throw std::out_of_range(msg);
+      }
+    }
   }
 
   template <typename TCellPredicate> requires std::predicate<TCellPredicate, Cell>
@@ -223,6 +256,11 @@ class CellRange : public std::ranges::view_interface<CellRange<TRange>> {
 
 };
 */
+template <concepts::CXXCell TCell>
+std::ostream& operator<<(std::ostream& out, const CellRange<TCell>& object) {
+  object.selfDisplay(out);
+  return out;
+}
 
 } // namespace DGtalTrace
 

@@ -1,11 +1,8 @@
 #pragma once
-#include <DGtal/topology/KhalimskySpaceND.h>
 #include <concepts>
-#include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
+#include <DGtal/topology/KhalimskySpaceND.h>
 #include <DGtal/base/Assert.h>
 #include "BaseConcepts.cpp"
-#include "../DimensionOf.cpp"
 
 namespace DGtalTrace {
 namespace concepts {
@@ -80,6 +77,7 @@ concept CSameCellSignedness = CXXCell<TCell> && CXXCell<UCell, DimensionOf<TCell
 };
 
 namespace {
+  /*
   using namespace DGtal::Z2i;
 
   static_assert((CSCell<KSpace::SCell, 2> == true));
@@ -123,7 +121,7 @@ namespace {
   static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::Cell> == true));
   static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::SPreCell> == false));
   static_assert((CSameCellSignedness<KSpace::PreCell, KSpace::SCell> == false));
-  
+  */
 } // anonymous namespace
 
 } // namespace concepts

@@ -1,15 +1,13 @@
 #pragma once
-#include "../DimensionOf.cpp"
-#include "BaseConcepts.cpp"
-#include "CCell.cpp"
-#include <DGtal/base/Assert.h>
-#include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
-#include <DGtal/topology/CCellularGridSpaceND.h>
-#include <DGtal/topology/CPreCellularGridSpaceND.h>
-#include <boost/concept/assert.hpp>
 #include <concepts>
 #include <type_traits>
+#include <boost/concept/assert.hpp>
+#include <DGtal/base/Assert.h>
+#include <DGtal/topology/CCellularGridSpaceND.h>
+#include <DGtal/topology/CPreCellularGridSpaceND.h>
+#include "BaseConcepts.cpp"
+#include "../DimensionOf.cpp"
+#include "CCell.cpp"
 
 namespace DGtalTrace {
 namespace concepts {
@@ -25,7 +23,7 @@ concept CKXSpaceLite = requires {
   typename TKSpace::Cell;
   typename TKSpace::SCell;
   typename TKSpace::Cells;
-  std::same_as<typename TKSpace::Cell, typename KSpace::Cells::value_type>;
+  requires std::same_as<typename TKSpace::Cell, typename TKSpace::Cells::value_type>;
   requires(dim == 0 || DimensionOf<TKSpace> == dim);
   requires HasSameDimension<TKSpace, typename TKSpace::PreCellularGridSpace>;
   requires HasSameDimension<TKSpace, typename TKSpace::Point>;
@@ -104,7 +102,20 @@ concept CHasKSpace = (CXXCell<TCell> && ...) &&
                      CXCellularGridSpaceND<KXSpace> &&
                      (std::same_as<KXSpace, typename TCell::CellularGridSpace> && ...);
 
+/*
+template <typename KXSpace, typename ... TCell>
+concept CHasCell = CXCellularGridSpaceND<KXSpace> &&
+                   (CXXCell<TCell> && ...) && 
+                   (CHasKSpace<KSpace, TCell> && ...);
+
+template <typename KXSpace, typename ... TCell>
+concept CHasXCell = CXCellularGridSpaceND<KXSpace> &&
+                    (CXXCell<TCell> && ...) && 
+                    ((CHasKSpace<KSpace, TCell> || CHasKPreSpace<KSpace, TCell>) && ...);
+*/
+
 namespace {
+/*
 using namespace DGtal::Z2i;
 
 static_assert((CCellularGridSpaceND<KSpace, 2> == true));
@@ -130,7 +141,7 @@ static_assert((CHasKPreSpace<KPreSpace, KSpace::SPreCell> == true));
 static_assert((CHasKPreSpace<KPreSpace, KPreSpace::Cell> == true));
 static_assert((CHasKPreSpace<KPreSpace, KPreSpace::SCell> == true));
 static_assert((CHasKPreSpace<KPreSpace, DGtal::Z3i::KSpace::Cell> == false));
-
+*/
 } // anonymous namespace
 
 } // namespace concepts

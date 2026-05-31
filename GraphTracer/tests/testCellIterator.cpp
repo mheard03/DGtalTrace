@@ -1,6 +1,5 @@
 #include <DGtal/base/Assert.h>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/topology/KhalimskySpaceND.h>
 #include "../CellIterator.cpp"
 

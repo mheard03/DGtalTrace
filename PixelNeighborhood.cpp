@@ -17,7 +17,6 @@
 #include <unistd.h>
 #include <vector>
 #include <numeric>
-#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/base/Trace.h>
 #include "util/traceHelper.cpp"
 #include "CEVec.cpp"

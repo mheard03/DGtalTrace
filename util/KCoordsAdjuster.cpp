@@ -1,17 +1,19 @@
 #pragma once
-#include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
-#include <boost/concept/assert.hpp>
 #include <concepts>
 #include <optional>
-#include <ranges>
 #include <utility>
-#include "../CellTypeTraits.cpp"
-#include "../concepts/CCell.cpp"
-#include "../concepts/CXCellularGridSpaceND.cpp"
-#include "setKCoords_unsafe.cpp"
+#include <boost/concept/assert.hpp>
+#include <DGtal/base/Common.h>
+#include <DGtal/base/ConstAlias.h>
+#include "concepts/CCell.cpp"
+#include "concepts/CXCellularGridSpaceND.cpp"
+#include "CellTypeTraits.cpp"
 
 namespace DGtalTrace {
+namespace detail {
+template <concepts::CPreCellularGridSpaceND KSpace>
+constexpr KSpace preSpaces;
+} // end namespace detail
 
 template <concepts::CXCellularGridSpaceND TKSpace>
 class KCoordsAdjuster {
@@ -39,7 +41,7 @@ class KCoordsAdjuster {
   KCoordsAdjuster(DGtal::ConstAlias<KSpace> ks) : myKPtr(&ks) {}
   KCoordsAdjuster() requires concepts::CPreCellularGridSpaceND<KSpace> : KCoordsAdjuster(preKPtr) {}
   static KCoordsAdjuster<KSpace> infinite() {
-    return KCoordsAdjuster(*infiniteKPtr);
+    return KCoordsAdjuster(*preKPtr);
   }
 
 
@@ -59,8 +61,7 @@ class KCoordsAdjuster {
   template <concepts::CXCell TCell>
   requires concepts::CHasKSpace<KSpace, TCell>
   void setKCoords(TCell& cell, const Point& kCoords) const {
-    setKCoords_(cell, kCoords, infiniteKPtr);
-    if (myKPtr != infiniteKPtr) throwIfOutside(cell, myKPtr);
+    setKCoords_(cell, kCoords, myKPtr);
   }
 
 
@@ -80,8 +81,20 @@ class KCoordsAdjuster {
   template <concepts::CXCell TCell>
   requires concepts::CHasKSpace<KSpace, TCell>
   void setKCoord(TCell& cell, const DGtal::Dimension k, const Point::Component value) const {
-    setKCoord_(cell, k, value, infiniteKPtr);
-    if (myKPtr != infiniteKPtr) throwIfOutside(cell, myKPtr);
+    setKCoord_(cell, k, value, myKPtr);
+  }
+
+
+  // ----------------------- coords  ------------------------------------------
+  template <concepts::CXXCell TCell>
+  requires concepts::CHasKPreSpace<KPreSpace, TCell>
+  static Point coords(const TCell& cell) {
+    if constexpr (concepts::CUXCell<TCell>) {
+      return KPreSpace::uCoords(cell);
+    }
+    if constexpr (concepts::CSXCell<TCell>) {
+      return KPreSpace::sCoords(cell);
+    }
   }
 
 
@@ -99,7 +112,7 @@ class KCoordsAdjuster {
   }
 
 
-  // ----------------------- make  ----------------------------------------
+  // ----------------------- make/convert PreCell  ----------------------------
   template <concepts::CUPreCell TCell>
   requires concepts::CHasKPreSpace<KPreSpace, TCell>
   static TCell make(const Point& kCoords) {
@@ -107,7 +120,7 @@ class KCoordsAdjuster {
   }
   template <concepts::CSPreCell TCell>
   requires concepts::CHasKPreSpace<KPreSpace, TCell>
-  static TCell make(const Point& kCoords, const Sign sign) {
+  static TCell make(const Point& kCoords, const Sign sign = KSpace::POS) {
     return make_inner<TCell>(kCoords, sign, preKPtr);
   }
 
@@ -127,20 +140,16 @@ class KCoordsAdjuster {
     return make<TCell>(kCoords(cell), sign);
   }
 
-
+  // ----------------------- make/convert Cell  -------------------------------
   template <concepts::CUCell TCell>
   requires concepts::CHasKSpace<KSpace, TCell>
   TCell make(const Point& kCoords) const {
-    TCell cell = make_inner<TCell>(kCoords, infiniteKPtr);
-    if (myKPtr != infiniteKPtr) throwIfOutside(cell, myKPtr);
-    return cell;
+    return make_inner<TCell>(kCoords, myKPtr);
   }
   template <concepts::CSCell TCell>
   requires concepts::CHasKSpace<KSpace, TCell>
-  TCell make(const Point& kCoords, const Sign sign) const {
-    TCell cell = make_inner<TCell>(kCoords, sign, infiniteKPtr);
-    if (myKPtr != infiniteKPtr) throwIfOutside(cell, myKPtr);
-    return cell;
+  TCell make(const Point& kCoords, const Sign sign = KSpace::POS) const {
+    return make_inner<TCell>(kCoords, sign, myKPtr);
   }
   
   template <concepts::CUCell TCell, concepts::CXXCell XCell>
@@ -158,6 +167,7 @@ class KCoordsAdjuster {
   TCell convert(const XCell& cell, const Sign sign) const {
     return make<TCell>(kCoords(cell), sign);
   }
+
 
   // ----------------------- dim, topology  -----------------------------------
   template <concepts::CXXCell TCell>
@@ -179,11 +189,56 @@ class KCoordsAdjuster {
       return KPreSpace::sTopology(cell);
     }
   }
+
+
+  // ----------------------- inside/valid  ------------------------------------
+  template <concepts::CXXCell TCell>
+  bool isValid(const TCell& cell) const {
+    return isValid_(cell, myKPtr);
+  }
+  template <concepts::CXXCell TCell>
+  void assertValid(const TCell& cell) const {
+    assertValid_(cell, myKPtr);
+  }
+
+  template <concepts::CXXCell TCell>
+  bool isInside(const TCell& cell) const {
+    return isInside_(cell, myKPtr);
+  }
+  template <concepts::CXXCell TCell>
+  void assertInside(const TCell& cell) const {
+    assertInside_(cell, myKPtr);
+  }
+
+  /*
+  // ----------------------- misc  --------------------------------------------
+  template <concepts::CXCellularGridSpaceND TKSpaceOther>
+  static const bool isInfinite(const TKSpaceOther& other) {
+    // Prespaces are always infinite
+    if constexpr (concepts::CPreCellularGridSpaceND<TKSpaceOther>) return true;
+    
+    // If this is the global infinite space, we're done
+    if (&infiniteKPtr == &other) return true;
+
+    std::array<typename TKSpaceOther::Closure, TKSpaceOther::dimension> closure;
+    for (DGtal::Dimension k; k < TKSpaceOther::dimension; k++) {
+      closure[k] = other.getClosure(k);
+    }
+    TKSpaceOther tmp
+
+    if (infiniteKPtr->lowerCell() != other->lowerCell()) return false;
+    if (infiniteKPtr->upperCell() != other->upperCell()) return false;
+    for (DGtal::Dimension k = 0; k < KSpace::dimension; k++) {
+      if (infiniteKPtr->getClosure(k) != other->getClosure(k)) return false;
+    }
+    return true;
+  }
+  */
     
  private:
-  inline static const KSpace* infiniteKPtr = &detail::ksInfinite<KSpace>;
-  inline static const KPreSpace* preKPtr = &detail::ksInfinite<KPreSpace>;
-  const KSpace* myKPtr;
+  inline static const KPreSpace* preKPtr = &detail::preSpaces<KPreSpace>;
+  const KSpace* myKPtr = nullptr;
+
   
   // ----------------------- kCoord, kCoords  ---------------------------------
   template <concepts::CXXCell TCell>
@@ -223,6 +278,7 @@ class KCoordsAdjuster {
     }
   }
 
+  // ----------------------- make_inner  --------------------------------------
   template <concepts::CUXCell TCell>
   static TCell make_inner(const Point& kCoords, const TCell::CellularGridSpace* kPtr) {
     return kPtr->uCell(kCoords);
@@ -232,16 +288,36 @@ class KCoordsAdjuster {
     return kPtr->sCell(kCoords, sign);
   }
 
-  // ----------------------- misc  --------------------------------------------
-  template <concepts::CXCellularGridSpaceND TKSpaceOther>
-  static const bool isInfinite(const TKSpaceOther& other) {
-    if constexpr (concepts::CPreCellularGridSpaceND<TKSpaceOther>) return true;
-    return &detail::ksInfinite<TKSpaceOther> == &other;
+  // ----------------------- inside/valid  ------------------------------------
+  template <concepts::CXXCell TCell, concepts::CXCellularGridSpaceND TTKSpace>
+  static bool isValid_(const TCell& cell, const TTKSpace* kPtr) {
+    if constexpr (concepts::CPreCellularGridSpaceND<TTKSpace>) return true;
+    if constexpr (concepts::CCellularGridSpaceND<TTKSpace>) {
+      return kPtr->cIsValid(kCoords(cell));
+    }
+  }
+  template <concepts::CXXCell TCell, concepts::CXCellularGridSpaceND TTKSpace>
+  static void assertValid_(const TCell& cell, const TTKSpace* kPtr) {
+    ASSERT(isValid_(cell, kPtr));
+  }
+
+
+  template <concepts::CXXCell TCell, concepts::CXCellularGridSpaceND TTKSpace>
+  static bool isInside_(const TCell& cell, const TTKSpace* kPtr) {
+    if constexpr (concepts::CPreCellularGridSpaceND<TTKSpace>) return true;
+    if constexpr (concepts::CCellularGridSpaceND<TTKSpace>) {
+      return kPtr->cIsInside(kCoords(cell));
+    }
+  }
+  template <concepts::CXXCell TCell, concepts::CXCellularGridSpaceND TTKSpace>
+  static void assertInside_(const TCell& cell, const TTKSpace* kPtr) {
+    ASSERT(isInside_(cell, kPtr));
   }
 
 };
 
 namespace {
+  /*
   using namespace DGtal::Z2i;
     
   static_assert((requires (KCoordsAdjuster<KSpace> ks, KSpace::Cell c, KSpace::Point p) { ks.setKCoords(c, p); }));
@@ -302,6 +378,7 @@ namespace {
 
 
   static_assert((requires (KCoordsAdjuster<KSpace> ks, KSpace::Cell c, KSpace::Point p) { ks.setKCoords(c, p); }));
+  */
 }
 
 

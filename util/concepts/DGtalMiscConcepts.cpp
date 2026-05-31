@@ -2,7 +2,6 @@
 #include <DGtal/base/BasicFunctors.h>
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/kernel/PointVector.h>
 #include "CHasDimension.cpp"
 #include "CCell.cpp"

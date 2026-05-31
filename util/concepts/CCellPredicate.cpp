@@ -1,7 +1,6 @@
 #pragma once
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include <utility>
 #include "CCell.cpp"
 #include "DGtalMiscConcepts.cpp"

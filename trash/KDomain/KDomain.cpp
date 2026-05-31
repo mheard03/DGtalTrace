@@ -1,102 +1,38 @@
 #pragma once
-#include <DGtal/base/Assert.h>
+#include <concepts>
+#include <boost/concept/assert.hpp>
+#include <boost/iterator/transform_iterator.hpp>
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
-#include "DGtal/topology/CCellularGridSpaceND.h"
-#include <DGtal/kernel/BasicPointPredicates.h>
+#include <DGtal/kernel/CPointPredicate.h>
+#include <DGtal/base/CSTLAssociativeContainer.h>
+#include <DGtal/topology/CCellularGridSpaceND.h>
+#include "../concepts/CCell.cpp"
 #include <DGtal/kernel/domains/HyperRectDomain.h>
 #include <DGtal/kernel/domains/Linearizer.h>
 #include <DGtal/topology/KhalimskySpaceND.h>
-#include <DGtal/base/CSTLAssociativeContainer.h>
-#include <concepts>
+#include <optional>
 #include <ranges>
-#include <type_traits>
-#include "../concepts/DGtalConcepts.cpp"
-#include "../concepts/CCell.cpp"
-#include <boost/iterator/transform_iterator.hpp>
-#include <boost/concept/assert.hpp>
-#include "DGtal/kernel/BasicPointPredicates.h"
-#include <boost/concept/assert.hpp>
 #include "RectangleND.cpp"
-#include "../util/traceHelper.cpp"
+#include "PointPredicateWrapperCellPredicate.cpp"
+#include "IsWithinAnyPointPredicate.cpp"
+#include "../traceHelper.cpp"
 
 namespace DGtalTrace {
-namespace functors {
-
-template <typename TPoint>
-struct IsWithinAnyPointPredicate {
-  typedef TPoint Point;
-  typedef DGtal::functors::IsWithinPointPredicate<Point> SubPredicate;
-
-  IsWithinAnyPointPredicate() {}
-
-  void add(const SubPredicate& subPredicate) {
-    mySubPredicates.push_back(subPredicate);
-  }
-
-  bool operator()(const Point & p ) const {
-    for (const SubPredicate &subPred : mySubPredicates) {
-      if (subPred(p)) return true;
-    }
-    return false;
-  }
-
- private:
-  std::vector<SubPredicate> mySubPredicates;
-};
-BOOST_CONCEPT_ASSERT (( DGtal::concepts::CPointPredicate<IsWithinAnyPointPredicate<DGtal::Z2i::Point>> ));
-
-
-template <typename TKSpace, typename TPointPredicate>
-requires std::same_as<typename TKSpace::Point, typename TPointPredicate::Point>
-struct CellPredicate {
-  typedef TKSpace KSpace;
-  typedef TPointPredicate PointPredicate;
-  typedef KSpace::Point Point;
-  BOOST_CONCEPT_ASSERT (( DGtal::concepts::CCellularGridSpaceND<KSpace> ));
-  BOOST_CONCEPT_ASSERT (( DGtal::concepts::CPointPredicate<TPointPredicate> ));
-  
-  CellPredicate() : myKPtr(nullptr) {}
-  CellPredicate(DGtal::ConstAlias<KSpace> ks) : myKPtr(&ks) {}
-  CellPredicate(DGtal::ConstAlias<KSpace> ks, const PointPredicate& predicate) : myKPtr(&ks), myPointPredicate(predicate) {}
-  
-  // CellPredicate(const CellPredicate& other) = default;
-  // CellPredicate & operator=( CellPredicate const& other ) = default;
-
-  template <concepts::CXXCell TCell>
-  bool operator()(const TCell& c) const {
-    return myPointPredicate(c.preCell().coordinates);
-  }
-  bool operator()(const Point& p) const {
-    if (myKPtr->cIsValid(p)) return myPointPredicate(p);
-    if (!myKPtr->cIsInside(p)) return false;
-    return myPointPredicate(myKPtr->uCell(p).preCell().coordinates);
-  }
-
-  PointPredicate& predicate() {
-    return myPointPredicate;
-  }
-
- private:
-  const KSpace* myKPtr;
-  PointPredicate myPointPredicate;
-};
-BOOST_CONCEPT_ASSERT (( DGtal::concepts::CPointPredicate<CellPredicate<DGtal::Z2i::KSpace, DGtal::functors::TruePointPredicate<DGtal::Z2i::Point>>> ));
-
-} // namespace functors
 
 // typedef DGtal::Z2i::KSpace TKSpace;
 template <typename TKSpace>
 requires DGtalTrace::concepts::CXXCell<typename TKSpace::Cell>
-class KDomain {
+class KRectangle {
  public:
   typedef TKSpace KSpace;
-  typedef typename KSpace::PreCellularGridSpace PKSpace;
+  typedef typename KSpace::PreCellularGridSpace KPreSpace;
   BOOST_CONCEPT_ASSERT(( DGtal::concepts::CCellularGridSpaceND<TKSpace> ));
   typedef typename KSpace::Space Space;
   typedef typename KSpace::Cell Cell;
   typedef typename KSpace::PreCell PreCell;
   typedef typename KSpace::Point Point;
+  typedef typename Point::Component Component;
   static constexpr DGtal::Dimension dimension = KSpace::dimension;
 
   typedef DGtal::HyperRectDomain<typename TKSpace::Space> Domain;
@@ -104,7 +40,8 @@ class KDomain {
   typedef typename Domain::Integer Integer;
   typedef typename Domain::Size Size;
   typedef typename Domain::Dimension Dimension;
-  typedef typename functors::CellPredicate<KSpace, functors::IsWithinAnyPointPredicate<Point>> Predicate;
+  typedef typename DGtal::functors::PointPredicateWrapperCellPredicate<KSpace, DGtal::functors::IsWithinAnyPointPredicate<Point>> Predicate;
+  typedef DGtal::NumberTraits<typename Point::Component> NT;
   
  private:
   typedef RectangleND<Point> Rect;
@@ -122,11 +59,12 @@ class KDomain {
 
  public:
   using ConstIterator = boost::transform_iterator<PointToCell, InnerIterator>;
+  
 
   // ----------------------- Standard services ------------------------------
-  KDomain() : myKPtr(nullptr) {}
+  KRectangle() : myKPtr(nullptr) {}
 
-  KDomain(DGtal::ConstAlias<KSpace> ks, const Cell& lowerCell, const PreCell& upperCell)
+  KRectangle(DGtal::ConstAlias<KSpace> ks, const Cell& lowerCell, const PreCell& upperCell)
     : myKPtr(&ks),
       myDomain(makeDomain(ks, lowerCell, upperCell)),
       myPredicate(ks)
@@ -135,7 +73,7 @@ class KDomain {
 
     if (!myKPtr->isValid()) throw std::invalid_argument("KDomain constructor received invalid KSpace");
     
-    if (!myKPtr->isAnyDimensionPeriodic() || ks->cIsValid(PKSpace::uKCoords(upperCell))) {
+    if (!myKPtr->isAnyDimensionPeriodic() || ks->cIsValid(KPreSpace::uKCoords(upperCell))) {
       myPredicate.predicate().add(myDomain.predicate());
     }
     else {
@@ -150,7 +88,7 @@ class KDomain {
     }
   }
 
-  KDomain(const KDomain& other)
+  KRectangle(const KRectangle& other)
     : myKPtr(other.myKPtr),
       myDomain(other.myDomain),
       myPredicate(other.myPredicate)
@@ -158,7 +96,7 @@ class KDomain {
     ASSERT(myKPtr->isValid());
   }
 
-  KDomain& operator=(const KDomain& other) {
+  KRectangle& operator=(const KRectangle& other) {
     if (this != &other) {
       myKPtr = other.myKPtr;
       myDomain = other.myDomain;
@@ -175,7 +113,7 @@ class KDomain {
   }
 
   Domain::Point getPoint(const Cell& c) const {
-    return PKSpace::uKCoords(c);
+    return KPreSpace::uKCoords(c);
   }
   Domain::Point getPoint(Size n) const {
     return myDomain.begin()[n];
@@ -214,15 +152,36 @@ class KDomain {
     return myKPtr->uCell(myDomain.lowerBound());
   }
   const PreCell upperBound() const {
-    return PKSpace::uCell(myDomain.upperBound());
+    return KPreSpace::uCell(myDomain.upperBound());
   }
   bool isInside(const Cell& c) const {
-    return myDomain.isInside(c.preCell().coordinates);
-    // myPredicate(c);
+    // return myDomain.isInside(c.preCell().coordinates);
+    return myPredicate(c);
   }
-  //const Predicate& predicate() const {
-  //  return myPredicate;
-  //}
+  const Predicate& predicate() const {
+    return myPredicate;
+  }
+
+  // ----------------------- Bounds helpers ---------------------------------
+
+  std::optional<Cell> uFirst(const PreCell& p, DGtal::Dimension k) const {
+    Point pResult = myDomain.lowerBound();
+    for (DGtal::Dimension k = 0; k < dimension; k++) {
+      if (NT::odd(pResult[k]) != NT::odd(KPreSpace::uKCoord(p, k))) pResult[k] += 1;
+    }
+    Cell result;
+    KPreSpace::uSetKCoords(result, pResult);
+    return isInside(result) ? result : std::nullopt;
+  }
+  std::optional<Cell> uLast(const PreCell& p, DGtal::Dimension k) const {
+    Point pResult = myDomain.upperBound();
+    for (DGtal::Dimension k = 0; k < dimension; k++) {
+      if (NT::odd(pResult[k]) != NT::odd(KPreSpace::uKCoord(p, k))) pResult[k] -= 1;
+    }
+    Cell result;
+    KPreSpace::uSetKCoords(result, pResult);
+    return isInside(result) ? result : std::nullopt;
+  }
 
   // ----------------------- Display ----------------------------------------
 
@@ -231,14 +190,14 @@ class KDomain {
         << myDomain.upperBound() << "]";
   }
 
-  // ----------------------- Private ----------------------------------------
-// private:
+  // ----------------------- Construction helpers ---------------------------
+ private:
 
   static constexpr Domain makeDomain(DGtal::ConstAlias<KSpace> ks, const Cell& lowerCell, const PreCell& upperCell) {
     Point lowerPoint = ks->uKCoords(lowerCell);
-    Point upperPoint = PKSpace::uKCoords(upperCell);
+    Point upperPoint = KPreSpace::uKCoords(upperCell);
     Vector domainExtent = upperCell.coordinates - lowerCell.preCell().coordinates + Point::diagonal(1);
-    Vector kExtent = ks->uKCoords(ks->upperCell()) - PKSpace::uKCoords(ks->lowerCell()) + Point::diagonal(1);
+    Vector kExtent = ks->uKCoords(ks->upperCell()) - KPreSpace::uKCoords(ks->lowerCell()) + Point::diagonal(1);
     DGtal::trace.info() << "kExtent " << kExtent << "; domainExtent: " << domainExtent << std::endl; 
 
     if (!lowerPoint.isLower(upperPoint)) throw std::invalid_argument("KDomain's upperCell must be above its lowerCell");
@@ -303,46 +262,9 @@ class KDomain {
 };
 
 template <typename TKSpace>
-std::ostream& operator<<(std::ostream& out, const KDomain<TKSpace>& object) {
+std::ostream& operator<<(std::ostream& out, const KRectangle<TKSpace>& object) {
   object.selfDisplay(out);
   return out;
 }
 
 } // namespace DGtalTrace
-
-
-/*
-template <DGtalTrace::concepts::CCell TCell>
-inline bool IsWithinPointPredicate<TCell>::operator()(const TCell& c) const {
-
-};
-
-};
-  return p.isUpper( myLowerBound )
-    && p.isLower( myUpperBound );
-}
-  typedef TPoint Point;
-
-  IsWithinPointPredicate( const Point & lowerBound,
-        const Point & upperBound );
-
-  bool operator()( const Point & p ) const;
-
-  /// the upper bound.
-  Point myLowerBound;
-  /// the lower bound.
-  Point myUpperBound;
-};
-}
-}
-template <> 
-inline bool DGtal::functors::IsWithinPointPredicate<DGtalTrace::concepts::CXXCell<TPoint>>
-::operator()( const Point & p ) const
-{
-  return p.isUpper( myLowerBound )
-    && p.isLower( myUpperBound );
-}
-    */
-
-BOOST_CONCEPT_ASSERT((DGtal::concepts::CDomain<DGtal::Z2i::Domain> ));
-// BOOST_CONCEPT_ASSERT((DGtal::concepts::CDomain<DGtalTrace::KDomain<DGtal::Z2i::KSpace>> ));

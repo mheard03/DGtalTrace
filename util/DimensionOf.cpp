@@ -1,8 +1,6 @@
 #pragma once
 #include <concepts>
-#include <type_traits>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include "concepts/detail_CHasDimensionField.cpp"
 
 namespace DGtalTrace {

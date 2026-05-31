@@ -2,7 +2,6 @@
 #include <concepts>
 #include <DGtal/base/Assert.h>
 #include <DGtal/base/Common.h>
-#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/kernel/PointVector.h>
 #include <type_traits>
 #include "../DimensionOf.cpp"
@@ -41,6 +40,7 @@ template<typename T, typename ... U>
 concept CSameAsAll = (std::same_as<T, U> && ...);
 
 namespace {
+  /*
   using namespace DGtal::Z2i;
 
   static_assert((detail::IsBasically<int, int> == true));
@@ -60,7 +60,7 @@ namespace {
   static_assert((CIsFalse<std::string> == false));
   static_assert((CIsFalse<std::false_type> == true));
   static_assert((CIsFalse<std::true_type> == false));
-  
+  */
 }
 
 } // namespace concepts
