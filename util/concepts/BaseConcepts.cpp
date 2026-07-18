@@ -5,6 +5,7 @@
 #include <DGtal/kernel/PointVector.h>
 #include <type_traits>
 #include "../DimensionOf.cpp"
+#include "common/CBool.cpp"
 
 namespace DGtalTrace {
 namespace concepts {
@@ -20,6 +21,7 @@ concept CPoint = requires {
   requires (dim == 0 || DimensionOf<T> == dim);
 };
 */
+/*
 template <bool T>
 concept CBool = T;
 
@@ -28,7 +30,7 @@ concept CIsTrue = std::same_as<T, std::true_type> || (requires { T::value; } && 
 
 template <typename T>
 concept CIsFalse = std::same_as<T, std::false_type> || (requires { T::value; std::convertible_to<T, bool>; } && !T::value);
-
+*/
 
 template <typename T, DGtal::Dimension dim = 0>
 concept CPoint = CIsTrue<DGtal::IsAPointVector<T>> && requires { requires (dim == 0 || DimensionOf<T> == dim); };

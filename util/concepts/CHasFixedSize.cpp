@@ -14,6 +14,9 @@ concept CHasFixedSize = requires {
   requires (dim == 0 || std::tuple_size_v<T> == dim);
 };
 
+int test = std::tuple_size_v<std::array<int, 3>>;
+int test = std::tuple_size_v<int[3]>;
+
 namespace {
   static_assert((CHasFixedSize<std::array<int, 3>> == true));
   static_assert((CHasFixedSize<std::array<int, 3>, 3> == true));

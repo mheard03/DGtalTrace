@@ -1,10 +1,12 @@
 #pragma once
+#include <DGtal/topology/KhalimskySpaceND.h>
 #include <concepts>
 #include <optional>
 #include <utility>
 #include <boost/concept/assert.hpp>
 #include <DGtal/base/Common.h>
 #include <DGtal/base/ConstAlias.h>
+#include "concepts/BaseConcepts.cpp"
 #include "concepts/CCell.cpp"
 #include "concepts/CXCellularGridSpaceND.cpp"
 #include "CellTypeTraits.cpp"
@@ -191,7 +193,7 @@ class KCoordsAdjuster {
   }
 
 
-  // ----------------------- inside/valid  ------------------------------------
+  // ----------------------- inside/valid/periodic  ---------------------------
   template <concepts::CXXCell TCell>
   bool isValid(const TCell& cell) const {
     return isValid_(cell, myKPtr);
@@ -208,6 +210,11 @@ class KCoordsAdjuster {
   template <concepts::CXXCell TCell>
   void assertInside(const TCell& cell) const {
     assertInside_(cell, myKPtr);
+  }
+
+  bool isSpacePeriodic(DGtal::Dimension k) const {
+    if constexpr (concepts::CPreCellularGridSpaceND<KSpace>) return false;
+    return myKPtr->isSpacePeriodic(k);
   }
 
   /*

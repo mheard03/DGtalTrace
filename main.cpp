@@ -1,6 +1,7 @@
 #include <ranges>
 #include "util/dimsOf.cpp"
 #include "util/KCoordsAdjuster.cpp"
+#include "util/concepts/CCell.cpp"
 //#include "util/concepts/CXCellularGridSpaceND.cpp"
 //#include "util/KDomain/KRectangle.cpp"
 //#include "util/KDomain/CellIterator.cpp"
@@ -8,12 +9,13 @@
 //#include "util/KDomain/CellRange_single.cpp"
 //#include "util/KDomain/biota_view.cpp"
 //#include "util/KCellRange/CoordIOTraits.cpp"
-#include "util/KCellRange/CellRange.cpp"
+//#include "util/KCellRange/CellRange.cpp"
 #include "util/traceHelper.cpp"
 //#include "util/makeRange.cpp"
 #include <DGtal/base/Common.h>
 #include <DGtal/kernel/PointVector.h>
 #include <DGtal/helpers/StdDefs.h>
+#include "ArcTracker.cpp"
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -30,19 +32,139 @@ void printCell(const TCell& cell, const TKSpace& ks, const std::string& prefix =
   trace.info() << std::endl;
 }
 
+template <typename T>
+struct AdaptedPoint;
+
+template <DGtalTrace::concepts::CPoint T>
+struct AdaptedPoint<T> {
+  typedef T Point;
+  typedef Point::Component Component;
+
+  // AdaptedPoint() {}
+  AdaptedPoint(Point& value) : myValue(value) {}
+  AdaptedPoint(AdaptedPoint& value) = default;
+  AdaptedPoint(Point&& value) : myValue(value) {}
+  AdaptedPoint(AdaptedPoint&& value) = default;
+
+  Component &operator[](size_t index) {
+    return myValue[index];
+  }
+  const Component &operator[](size_t index) const {
+    return myValue[index];
+  }
+
+  constexpr operator Point&() & { return myValue; }
+  constexpr operator Point() const& { return myValue; }
+
+ private:
+  Point myValue;
+};
+
+template <DGtalTrace::concepts::CUCell T>
+struct AdaptedPoint<T> {
+  typedef T::Point Point;
+  typedef T::Point::Component Component;
+  typedef T::CellularGridSpace KSpace;
+
+  // AdaptedPoint() {}
+  AdaptedPoint(T& value, const KSpace& ks) : myValue(value), myKPtr(&ks) {}
+  AdaptedPoint(AdaptedPoint& value) = default;
+  AdaptedPoint(T&& value, const KSpace& ks) : myValue(value), myKPtr(&ks) {}
+  AdaptedPoint(AdaptedPoint&& value) = default;
+
+  class Proxy {
+    private:
+        AdaptedPoint<T>& wrapper;
+        size_t index;
+
+    public:
+        Proxy(AdaptedPoint<T>& w, size_t idx) : wrapper(w), index(idx) {}
+
+        // 1. Intercepts assignment (writing): my_wrapper[0] = "new value";
+        Proxy& operator=(const Component new_value) {
+            wrapper.myKPtr->uSetKCoord(wrapper.myValue, index, new_value);
+            return *this;
+        }
+
+        // 2. Intercepts casting/reading: std::string val = my_wrapper[0];
+        operator Component() const {
+            return wrapper.myKPtr->uKCoord(index);
+        }
+    };
+
+
+  Proxy operator[](size_t index) {
+    return Proxy(*this, index);
+  }
+  const Component &operator[](size_t index) const {
+    return myKPtr->uKCoord(index);
+  }
+
+  operator T&() & { return myValue; }
+  operator T() const& { return myValue; }
+  operator Point() const& { return myValue.preCell().coordinates; }
+
+ private:
+  T myValue;
+  const KSpace* myKPtr;
+};
+
+template <typename T>
+requires requires { sizeof(AdaptedPoint<T>); } && 
+  requires (std::ostream out, T object) { out << object; }
+std::ostream& operator<<(std::ostream& out, const AdaptedPoint<T>& object) {
+  out << static_cast<T>(object);
+  return out;
+}
+
+
 int main(int argc, char** argv) {
   
   typedef DGtal::Z3i::KSpace KSpace;
   typedef DGtal::Z3i::KPreSpace KPreSpace;
   typedef KCoordsAdjuster<KSpace> KCA;
-  typedef KSpace::SCell SCell;
+  typedef KSpace::Cell Cell;
   typedef KSpace::PreCell PreCell;
   typedef KSpace::Point Point;
   typedef KSpace::Integer Integer;
-  typedef KRectangle<PreCell> KRect;
-  typedef CellRange<SCell> SCellRange;
+
+
+  Point p0({1, 1, 1});
+  trace.info() << "p0: " << p0 << std::endl;
+  AdaptedPoint<Point> ap = p0;
+  trace.info() << "ap before: " << ap << std::endl;
+  ap[0] = 17;
+  trace.info() << "ap after:  " << ap << std::endl;
+  Point p1 = ap;
+  trace.info() << "p0 after:  " << p0 << std::endl;
+  trace.info() << "p1 after:  " << p1 << std::endl;
+  trace.info() << std::endl;
+  
+
+
+  KSpace ksPeriodic;
+  ksPeriodic.init({0,0,0}, {3,3,3}, KSpace::Closure::PERIODIC);  
+  auto ks = ksPeriodic;
+
+  Cell c0 = ksPeriodic.uCell({2, 2, 2});
+  trace.info() << "c0: " << c0 << std::endl;
+  AdaptedPoint<Cell> ac(c0, ks);
+  trace.info() << "ac before: " << ac << std::endl;
+  ac[0] = -5;
+  trace.info() << "ac after:  " << ac << std::endl;
+  Cell c1 = ac;
+  trace.info() << "c0 after:  " << c0 << std::endl;
+  trace.info() << "c1 after:  " << c1 << std::endl;
+  Point pc1 = ac;
+  trace.info() << "pc1 after: " << pc1 << std::endl;
+  return 0;
+
+
+  //typedef KRectangle<PreCell> KRect;
+  //typedef CellRange<SCell> SCellRange;
 
   // auto ks = KSpace({0,0}, {3,5}, false);
+  /*
   KSpace ksPeriodic;
   ksPeriodic.init({0,0,0}, {3,3,3}, KSpace::Closure::PERIODIC);
   
@@ -50,10 +172,11 @@ int main(int argc, char** argv) {
   trace.info() << "ks: " << ks << std::endl;
   trace.info() << "  lowerCell: " << ks.lowerCell() << std::endl;
   trace.info() << "  upperCell: " << ks.upperCell() << std::endl; 
-
+  
   for (auto cell : SCellRange(ks, 1, KSpace::NEG)) {
     trace.info() << cell << std::endl;
   }
+    */
 
   /*
   typedef CoordIOTraits<Point> PointIO;

@@ -60,3 +60,4 @@ build
 *\ copy.*
 *\ copy\ [0-9]*.*
 cpm-package-lock.cmake
+trash

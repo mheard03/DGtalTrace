@@ -36,8 +36,22 @@ INCLUDE(${CPM_DOWNLOAD_LOCATION})
 CPMAddPackage(
   NAME magic_enum
   GITHUB_REPOSITORY Neargye/magic_enum
-  GIT_TAG v0.9.7 # Replace x.y.z with the desired release version
+  GIT_TAG v0.9.7
 )
+
+# rapidcsv  -------------------------------------------------------------------
+CPMAddPackage(
+  NAME rapidcsv
+  GITHUB_REPOSITORY d99kris/rapidcsv
+  GIT_TAG v8.97
+)
+
+# sqlite  ---------------------------------------------------------------------
+#CPMAddPackage(
+#    NAME SQLiteCpp
+#    GIT_REPOSITORY https://github.com
+#    GIT_TAG 3.3.1
+#)
 
 # DGtal  ----------------------------------------------------------------------
 SET(DGTAL_ENABLE_TARGET_INSTALL OFF) # Necessary for use with CPM
@@ -72,6 +86,7 @@ set(CMAKE_BUILD_TYPE ${CMAKE_BUILD_TYPE_SAVED})
 ADD_EXECUTABLE(DGtalTrace main.cpp)
 TARGET_LINK_LIBRARIES(DGtalTrace magic_enum::magic_enum)
 TARGET_LINK_LIBRARIES(DGtalTrace DGtal::DGtal)
+TARGET_INCLUDE_DIRECTORIES(DGtalTrace PRIVATE ${PROJECT_SOURCE_DIR})
 TARGET_INCLUDE_DIRECTORIES(DGtalTrace PRIVATE ${BoostPolygon_SOURCE_DIR}/include)
 
 # INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})

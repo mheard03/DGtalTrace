@@ -1,0 +1,8 @@
+r,g,b,label,terrain,state,substate
+255,0,0,"California","land","California","Nevada"
+0,255,0,"Nevada","land","Nevada","Nevada"
+0,0,255,"Utah","land","Utah","Utah"
+255,255,255,"Ocean","water","",""
+255,255,0,"Lake","water","",""
+0,255,255,"Northern Arizona","impassable","Arizona","Northern Arizona"
+255,0,255,"Southern Arizona","land","Arizona","Southern Arizona"
