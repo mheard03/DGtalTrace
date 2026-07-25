@@ -5,11 +5,11 @@
 #include <DGtal/kernel/SpaceND.h>
 #include <DGtal/kernel/domains/HyperRectDomain.h>
 #include <DGtal/images/ImageContainerBySTLVector.h>
-#include "../dgtal/CConstSinglePassRange.cpp"
+#include "../dgtal/ranges/CConstSinglePassRange.cpp"
 #include "../dgtal/CDomain.cpp"
-#include "../dgtal/CTrivialConstImage.cpp"
-#include "../dgtal/CTrivialImage.cpp"
-#include "../dgtal/CConstImage.cpp"
+#include "../dgtal/images/CTrivialConstImage.cpp"
+#include "../dgtal/images/CTrivialImage.cpp"
+#include "../dgtal/images/CConstImage.cpp"
 
 
 using namespace DGtalTrace::concepts;

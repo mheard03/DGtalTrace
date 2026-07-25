@@ -4,7 +4,7 @@
 #include <DGtal/base/Common.h>
 #include <DGtal/kernel/PointVector.h>
 #include <type_traits>
-#include "../DimensionOf.cpp"
+#include "../util/DimensionOf.cpp"
 #include "common/CBool.cpp"
 
 namespace DGtalTrace {

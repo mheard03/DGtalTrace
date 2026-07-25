@@ -1,8 +1,8 @@
 #pragma once
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include "concepts/CHasFixedSize.cpp"
-#include "concepts/CIsInitializerList.cpp"
+#include "../concepts/CHasFixedSize.cpp"
+#include "../concepts/CIsInitializerList.cpp"
 
 namespace DGtalTrace {
 

@@ -4,7 +4,7 @@
 #include <DGtal/base/Common.h>
 #include <DGtal/kernel/NumberTraits.h>
 #include "BaseConcepts.cpp"
-#include "../DimensionOf.cpp"
+#include "../util/DimensionOf.cpp"
 
 namespace DGtalTrace {
 

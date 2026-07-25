@@ -1,7 +1,7 @@
 #pragma once
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include "concepts/detail_CHasDimensionField.cpp"
+#include "../concepts/detail_CHasDimensionField.cpp"
 
 namespace DGtalTrace {
 

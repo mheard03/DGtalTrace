@@ -1,8 +1,8 @@
 #pragma once
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include "concepts/BaseConcepts.cpp"
-#include "concepts/detail_CHasDimensionField.cpp"
+#include "../concepts/BaseConcepts.cpp"
+#include "../concepts/detail_CHasDimensionField.cpp"
 
 namespace DGtalTrace {
 

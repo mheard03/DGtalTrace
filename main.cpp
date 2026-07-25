@@ -1,8 +1,14 @@
-#include <ranges>
+#include <DGtal/topology/SurfelAdjacency.h>
+#include <iterator>
+
+#include <DGtal/images/ImageSelector.h>
+#include <DGtal/io/Color.h>
+
+#include "util/SafeConstImage.cpp"
 #include "util/dimsOf.cpp"
 #include "util/KCoordsAdjuster.cpp"
-#include "util/concepts/CCell.cpp"
-//#include "util/concepts/CXCellularGridSpaceND.cpp"
+#include "concepts/CCell.cpp"
+//#include "concepts/CXCellularGridSpaceND.cpp"
 //#include "util/KDomain/KRectangle.cpp"
 //#include "util/KDomain/CellIterator.cpp"
 //#include "util/KDomain/CellRange.cpp"
@@ -10,12 +16,18 @@
 //#include "util/KDomain/biota_view.cpp"
 //#include "util/KCellRange/CoordIOTraits.cpp"
 //#include "util/KCellRange/CellRange.cpp"
-#include "util/traceHelper.cpp"
+
 //#include "util/makeRange.cpp"
+#include "util/traceHelper.cpp"
 #include <DGtal/base/Common.h>
 #include <DGtal/kernel/PointVector.h>
 #include <DGtal/helpers/StdDefs.h>
+#include <DGtal/io/readers/STBReader.h>
+#include "util/NextSurfel.cpp"
 #include "ArcTracker.cpp"
+#include "util/SafeConstImage.cpp"
+#include "util/ConstSurfelPredicate.cpp"
+
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -117,18 +129,90 @@ std::ostream& operator<<(std::ostream& out, const AdaptedPoint<T>& object) {
   return out;
 }
 
-
 int main(int argc, char** argv) {
   
-  typedef DGtal::Z3i::KSpace KSpace;
-  typedef DGtal::Z3i::KPreSpace KPreSpace;
+  typedef DGtal::Z2i::KPreSpace KSpace;
+  typedef DGtal::Z2i::KPreSpace KPreSpace;
   typedef KCoordsAdjuster<KSpace> KCA;
   typedef KSpace::Cell Cell;
-  typedef KSpace::PreCell PreCell;
+  typedef KSpace::SCell SCell;
+  // typedef KSpace::PreCell PreCell;
   typedef KSpace::Point Point;
   typedef KSpace::Integer Integer;
 
+  KPreSpace ks;
+  SCell surfel = ks.sCell(Point(1,0), true);
+  trace.info() << ks.sIsSurfel(surfel) << std::endl;
 
+  DGtalTrace::functors::TrueSurfelPredicate<KPreSpace> predicateT;
+  DGtalTrace::functors::FalseSurfelPredicate<KPreSpace> predicateF;
+  
+  bool int2ext = false;
+
+  std::vector<SCell> contour1;
+  SurfelAdjacency<2> sAdj(int2ext);
+  DGtal::Surfaces<KPreSpace>::track2DSurface(contour1, ks, sAdj, predicateT, surfel);
+  trace.info() << contour1 << std::endl;
+
+  std::vector<SCell> contour2;
+  SurfelFollowers<KPreSpace> SF;
+  SF.all(contour2, surfel, int2ext);
+  trace.info() << contour2 << std::endl;
+  SF.all(contour2, surfel, int2ext, predicateT);
+  trace.info() << contour2 << std::endl;
+  SF.all(contour2, surfel, int2ext, predicateF);
+  trace.info() << contour2 << std::endl;
+
+  SCell firstSurfel = surfel;
+  bool hasNext;
+  do {
+    trace.info() << surfel << " ";
+    hasNext = SF.next(surfel, int2ext);
+  }
+  while (hasNext && surfel != firstSurfel);
+  trace.info() << std::endl;
+
+  surfel = firstSurfel;
+  do {
+    trace.info() << surfel << " ";
+    hasNext = SF.nextUnique(surfel, int2ext);
+  }
+  while (hasNext && surfel != firstSurfel);
+  trace.info() << std::endl;
+  /*
+  trace.info() << PreSurfelFollowers<KPreSpace>::first(surfel, int2ext);
+  trace.info() << contour2 << std::endl;
+  trace.info() << PreSurfelFollowers<KPreSpace>::unique(surfel, int2ext);
+  trace.info() << contour2 << std::endl;
+*/
+
+/*
+  typedef DGtal::Z2i::Domain Domain;
+  typedef ImageSelector<Domain, DGtal::Color>::Type ImageBase;
+  typedef SafeConstImage<ImageBase> Image;
+
+  typedef ArcTracker<KSpace, Image> Tracker;
+  Image img = DGtal::STBReader<ImageBase>::import("cali2.png");
+
+  trace.info() << img.domain() << std::endl;
+  trace.info() << img(img.domain().lowerBound()) << std::endl;
+  trace.info() << img(img.domain().lowerBound() - Point(1,1)) << std::endl;
+
+  KSpace ks;
+  ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});
+  //trace.info() << ks << std::endl;
+
+  //trace.info() << KCA::kCoords(ks.lowerCell()) << KCA::kCoords(ks.upperCell()) << std::endl;
+*/
+  /*
+  Tracker t(ks, img);
+  auto result = t.readImage();
+  trace.info() << result << std::endl;
+  */
+  return 0;
+
+
+ /*
   Point p0({1, 1, 1});
   trace.info() << "p0: " << p0 << std::endl;
   AdaptedPoint<Point> ap = p0;
@@ -158,6 +242,7 @@ int main(int argc, char** argv) {
   Point pc1 = ac;
   trace.info() << "pc1 after: " << pc1 << std::endl;
   return 0;
+  */
 
 
   //typedef KRectangle<PreCell> KRect;

@@ -6,16 +6,13 @@
 #include <boost/concept/assert.hpp>
 #include <DGtal/base/Common.h>
 #include <DGtal/base/ConstAlias.h>
-#include "concepts/BaseConcepts.cpp"
-#include "concepts/CCell.cpp"
-#include "concepts/CXCellularGridSpaceND.cpp"
+#include "../concepts/BaseConcepts.cpp"
+#include "../concepts/CCell.cpp"
+#include "../concepts/CXCellularGridSpaceND.cpp"
+#include "Globals.cpp"
 #include "CellTypeTraits.cpp"
 
 namespace DGtalTrace {
-namespace detail {
-template <concepts::CPreCellularGridSpaceND KSpace>
-constexpr KSpace preSpaces;
-} // end namespace detail
 
 template <concepts::CXCellularGridSpaceND TKSpace>
 class KCoordsAdjuster {

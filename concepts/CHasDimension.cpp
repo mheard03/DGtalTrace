@@ -1,7 +1,7 @@
 #pragma once
 #include <concepts>
 #include <DGtal/base/Common.h>
-#include "../DimensionOf.cpp"
+#include "../util/DimensionOf.cpp"
 
 namespace DGtalTrace {
 namespace concepts {

@@ -6,7 +6,7 @@
 #include <DGtal/topology/CCellularGridSpaceND.h>
 #include <DGtal/topology/CPreCellularGridSpaceND.h>
 #include "BaseConcepts.cpp"
-#include "../DimensionOf.cpp"
+#include "../util/DimensionOf.cpp"
 #include "CCell.cpp"
 
 namespace DGtalTrace {

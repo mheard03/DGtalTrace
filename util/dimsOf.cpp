@@ -3,8 +3,8 @@
 #include <numeric>
 #include <ranges>
 #include <DGtal/base/Common.h>
-#include "concepts/CHasDimension.cpp"
-#include "concepts/CXCellularGridSpaceND.cpp"
+#include "../concepts/CHasDimension.cpp"
+#include "../concepts/CXCellularGridSpaceND.cpp"
 #include "DimensionOf.cpp"
 
 namespace DGtalTrace {

@@ -2,7 +2,7 @@
 #include <concepts>
 #include <DGtal/base/Common.h>
 #include <DGtal/base/CUnaryFunctor.h>
-#include "../common/CBool.cpp"
+#include "../BaseConcepts.cpp"
 
 namespace DGtalTrace {
 namespace concepts {
@@ -18,11 +18,16 @@ concept CUnaryFunctorImpl =
       { x(a) } -> std::convertible_to<std::add_lvalue_reference_t<R>>;
     };
 */
+
+#define ISBASICALLY DGtalTrace::concepts::detail::IsBasically
+
 template <typename X, typename A, typename R>
 concept CUnaryFunctorImpl =
   std::assignable_from<X &, const X &> && requires(X x, A a) {
-    { x(a) } -> std::same_as<R>;
+    { x(a) } -> ISBASICALLY<R>;
   };
+
+#undef ISBASICALLY
 
 } // namespace detail
 
