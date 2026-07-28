@@ -1,23 +1,33 @@
 #pragma once
+#include <DGtal/helpers/StdDefs.h>
+#include <algorithm>
 #include <boost/range/adaptor/transformed.hpp>
+#include <cstdio>
+#include <exception>
 #include <iostream>
+#include <optional>
 #include <ranges>
+#include <type_traits>
 #include <unordered_set>
 #include <boost/range/adaptors.hpp>
+
+#include <DGtal/base/Common.h>
 #include <DGtal/base/Assert.h>
 #include <DGtal/base/Trace.h>
 
-#include <DGtal/base/Common.h>
+
 #include <DGtal/io/Color.h>
 #include <DGtal/images/ImageSelector.h>
 #include <DGtal/topology/SurfelAdjacency.h>
-#include <DGtal/topology/helpers/FrontierPredicate.h>
 #include <DGtal/topology/helpers/Surfaces.h>
 #include <DGtal/topology/KhalimskyCellHashFunctions.h>
 #include <DGtal/geometry/curves/GridCurve.h>
+#include <utility>
 #include "concepts/CXCellularGridSpaceND.cpp"
 #include "concepts/dgtal/images/CConstImage.cpp"
-
+#include "util/ConstSurfelPredicate.cpp"
+#include "util/SurfelFollowers.cpp"
+#include "FrontierOrEdgePredicate.cpp"
 
 namespace DGtalTrace {
 
@@ -34,10 +44,104 @@ class ArcTracker {
   typedef typename KSpace::PreCellularGridSpace KPreSpace;
   typedef typename KSpace::Point Point;
   typedef typename KSpace::SCell Surfel;
-  typedef typename DGtal::functors::FrontierPredicate<KSpace, Image> Predicate;
+  typedef typename functors::ContourPredicate<KSpace, Image> Predicate;
   typedef typename TImage::Value ImageValue;
 
-  static KSpace getExpanded(const KSpace ks) {
+  ArcTracker(DGtal::ConstAlias<KSpace> aKSpace, DGtal::ConstAlias<Image> anImage) :
+    myKPtr(&aKSpace), mySF(&aKSpace), myImgPtr(&anImage), myEdgePredicate(myKPtr, myImgPtr) {}
+
+  void trackSurface(std::vector<Surfel>& aContour, const Surfel& aSurfel) 
+  requires (KSpace::dimension == 2) {
+    ASSERT_MSG(myKPtr->sIsSurfel(aSurfel), "aSurfel is not a surfel");
+    typedef typename KSpace::SCell SCell;
+
+    aContour.clear(); // boundary being extracted.
+
+    // track backwards first
+    trackSurface(aContour, aSurfel, false);
+    std::reverse(aContour.begin(), aContour.end());
+    if (aContour.size() > 0) {
+      // DGtal::trace.info() << "  found " << aContour.size() << " tracking backwards" << std::endl;
+    }
+    
+    // return if it's already a closed loop
+    if (aContour.size() >= 4) {
+      Surfel first = aContour.front();
+      Surfel last = aContour.back();
+      SCell startPoint = myKPtr->sIndirectIncident(first, *myKPtr->sDirs(first));
+      SCell endpoint = myKPtr->sDirectIncident(last , *myKPtr->sDirs(last));      
+      if (startPoint == endpoint) return;
+    }
+
+    // we will be tracking forward! pop aSurfel from the end of the list, because it's about to get re-added
+    if (aContour.size() > 0) aContour.pop_back();
+    trackSurface(aContour, aSurfel, true);
+    if (aContour.size() > 0) {
+      // DGtal::trace.info() << "  found " << aContour.size() << " total" << std::endl;
+    }
+  }
+
+  // translation of DGtal::Surfaces<KSpace>::track2DSurface
+  void trackSurface(std::vector<Surfel>& aContour, const Surfel& aSurfel, const bool fwd) {
+    const Surfel startSurfel = aSurfel;
+    Surfel next = startSurfel;
+
+    // std::vector<Surfel> tmp;
+    do {
+      aContour.push_back(next);
+      if (aSurfel != startSurfel && isVisited(next)) throw "fkn how";
+      readAheadCells.insert(myKPtr->unsigns(next));
+    }
+    while ((fwd ? mySF.nextUnique(next, myEdgePredicate) : mySF.prevUnique(next, myEdgePredicate)) && next != startSurfel);
+  }
+
+  std::vector<std::vector<Surfel>> readImage() {
+    std::vector<std::vector<Surfel>> result;
+
+    int count = 0;
+    Domain domain(myKPtr->uKCoords(myKPtr->lowerCell()), myKPtr->uKCoords(myKPtr->upperCell()));
+    DGtal::trace.info() << "Domain " << domain << std::endl;
+    
+    std::vector<Surfel> nextArc;
+    for (auto point : domain) {
+      auto surfel = myKPtr->sCell(point, true);     
+      if (!KPreSpace::sIsSurfel(surfel)) continue;
+      if (isVisited(surfel)) continue;
+      myEdgePredicate.init(surfel);
+      if (!myEdgePredicate.hasContrast()) continue;
+      
+      
+      trackSurface(nextArc, surfel);
+      if (nextArc.size() > 0) {
+        result.push_back(nextArc);
+      }
+      /*
+      if (nextArc.size() > 0) {
+        DGtal::trace.info() << "Found arc of size " << nextArc.size() << "at surfel" << surfel << std::endl;
+        DGtal::GridCurve<KSpace> gc(myKPtr);
+        auto isValid = gc.initFromSCellsVector(nextArc);
+        DGtal::trace.info() << "  Valid GridCurve? " << isValid << "; " << gc << std::endl;        
+        result.push_back(nextArc);
+      }
+      */
+    }
+    return result;
+
+  }
+
+  bool isVisited(const Surfel& aSurfel) {
+    return readAheadCells.contains(myKPtr->unsigns(aSurfel));
+  }
+
+private:
+  const KSpace* myKPtr;
+  SurfelFollowers<KSpace> mySF;
+  const Image* myImgPtr;
+  Predicate myEdgePredicate;  
+  std::unordered_set<typename KSpace::Cell> readAheadCells;
+
+  /*
+  KSpace getUnbounded(const KSpace& ks) {
     typedef typename KSpace::Closure Closure;
 
     Point lowerBound = ks.lowerBound();
@@ -55,95 +159,7 @@ class ArcTracker {
     result.init(lowerBound, upperBound, dimClosures);
     return result;
   }
-
-  std::vector<Surfel> trackSurface(const Surfel aSurfel) {
-    std::vector<Surfel> result;
-    auto predicate = Predicate(ksExpanded, myImgPtr,
-                               myImgPtr->operator()(ksExpanded.interiorVoxel(aSurfel)),
-                               myImgPtr->operator()(ksExpanded.exteriorVoxel(aSurfel)));
-    DGtal::Surfaces<KSpace>::track2DSurface(result, ksExpanded, sAdj, predicate, aSurfel);
-    return result;
-  }
-
-  ArcTracker() {}
-
-  ArcTracker(DGtal::ConstAlias<KSpace> aSpace, DGtal::ConstAlias<Image> anImage) :
-    myKPtr(&aSpace), ksExpanded(getExpanded(aSpace)), myImgPtr(&anImage) {}
-
-  std::vector<std::vector<Surfel>> readImage() {
-    std::vector<std::vector<Surfel>> result;
-
-    Domain domain(myKPtr->uKCoords(myKPtr->lowerCell()), myKPtr->uKCoords(myKPtr->upperCell()));
-    for (auto point : domain) {
-      auto surfel = myKPtr->sCell(point, true);
-      if (!KPreSpace::sIsSurfel(surfel)) continue;
-      
-      auto pixel = KPreSpace::interiorVoxel(surfel);
-      bool hasGoodOrientation = myImgPtr->domain().isInside(myKPtr->interiorVoxel(surfel));
-      if (!hasGoodOrientation) surfel = myKPtr->sOpp(surfel);
-
-      DGtal::trace.info() << "Surfel " << surfel << ".";
-      if (isVisited(surfel)) {
-        DGtal::trace.info() << " Visited, skip." << std::endl;
-        continue;
-      };
-      
-
-      
-      
-      Value innerValue = myImgPtr->operator()(KPreSpace::interiorVoxel(surfel));
-      DGtal::trace.info() << " inner " << innerValue;
-      Value outerValue = myImgPtr->operator()(KPreSpace::exteriorVoxel(surfel));
-      DGtal::trace.info() << ", outer " << outerValue;
-      if (innerValue == outerValue) {
-        DGtal::trace.info() << " Not a boundary, skip." << std::endl;
-        continue;
-      };
-
-      auto predicate = Predicate(ksExpanded, myImgPtr, innerValue, outerValue);
-      std::vector<Surfel> arc;
-      DGtal::trace.info() << " Tracking... " << std::endl;
-      DGtal::Surfaces<KSpace>::track2DSurface(arc, ksExpanded, sAdj, predicate, surfel);
-      
-      DGtal::trace.info() << "arc length " << arc.size() << ".";
-      markVisited(arc);
-      DGtal::trace.info() << arc;
-      DGtal::trace.info() << " Marked visited";
-      result.push_back(arc);
-      DGtal::trace.info() << " & pushed." << std::endl;
-    }
-    return result;
-    /*
-    auto allCells = boost::make_iterator_range(domain.begin(), domain.end());
-    auto newSurfels = allCells | boost::adaptors::filter([this](KSpace::Cell& cell) {
-      return KPreSpace::uIsSurfel(cell) && !this->readAheadCells.contains(cell);
-    }) |
-    boost::adaptors::transform([this](KSpace::Cell& cell) {
-      return this->myKPtr->signs(cell, true);
-    });
-
-    for (const Surfel s : newSurfels) {
-
-    }
-    */
-  }
-
-// protected:
-  void markVisited(const std::vector<Surfel>& surfels) {
-    for (auto s : surfels) {
-      readAheadCells.insert(myKPtr->unsigns(s));
-    }
-  }
-  
-  bool isVisited(const Surfel& aSurfel) {
-    return readAheadCells.contains(myKPtr->unsigns(aSurfel));
-  }
-
-private:
-  const KSpace* myKPtr;
-  const KSpace ksExpanded;
-  const Image* myImgPtr;
-  std::unordered_set<typename KSpace::Cell> readAheadCells;
+  */
 };
 
 }

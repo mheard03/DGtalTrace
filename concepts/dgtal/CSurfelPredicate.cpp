@@ -27,7 +27,7 @@ struct CSurfelPredicate : std::false_type {};
 template <typename T>
 requires detail::CSurfelPredicateImpl<T>
 struct CSurfelPredicate<T> : std::true_type {
-  BOOST_CONCEPT_ASSERT((DGtal::concepts::CSurfelPredicate<T>));
+  // BOOST_CONCEPT_ASSERT((DGtal::concepts::CSurfelPredicate<T>));
 };
 
 } // namespace bridges

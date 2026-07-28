@@ -1,8 +1,15 @@
-#include <DGtal/topology/SurfelAdjacency.h>
-#include <iterator>
-
+#include <DGtal/base/Common.h>
+#include <DGtal/helpers/StdDefs.h>
 #include <DGtal/images/ImageSelector.h>
 #include <DGtal/io/Color.h>
+#include <DGtal/topology/helpers/Surfaces.h>
+#include <DGtal/geometry/curves/FreemanChain.h>
+#include <DGtal/geometry/curves/GridCurve.h>
+#include <DGtal/kernel/PointVector.h>
+#include <DGtal/io/readers/STBReader.h>
+#include <DGtal/io/boards/Board2D.h>
+#include <DGtal/io/colormaps/GradientColorMap.h>
+
 
 #include "util/SafeConstImage.cpp"
 #include "util/dimsOf.cpp"
@@ -19,14 +26,13 @@
 
 //#include "util/makeRange.cpp"
 #include "util/traceHelper.cpp"
-#include <DGtal/base/Common.h>
-#include <DGtal/kernel/PointVector.h>
-#include <DGtal/helpers/StdDefs.h>
-#include <DGtal/io/readers/STBReader.h>
-#include "util/NextSurfel.cpp"
+
+
+#include "util/SurfelFollowers.cpp"
 #include "ArcTracker.cpp"
 #include "util/SafeConstImage.cpp"
 #include "util/ConstSurfelPredicate.cpp"
+#include "FrontierOrEdgePredicate.cpp"
 
 
 using namespace DGtal;
@@ -129,40 +135,36 @@ std::ostream& operator<<(std::ostream& out, const AdaptedPoint<T>& object) {
   return out;
 }
 
-int main(int argc, char** argv) {
-  
-  typedef DGtal::Z2i::KPreSpace KSpace;
-  typedef DGtal::Z2i::KPreSpace KPreSpace;
+template <typename TKSpace>
+void testSurfelFollowers() {
+  typedef TKSpace KSpace;
   typedef KCoordsAdjuster<KSpace> KCA;
-  typedef KSpace::Cell Cell;
-  typedef KSpace::SCell SCell;
-  // typedef KSpace::PreCell PreCell;
-  typedef KSpace::Point Point;
-  typedef KSpace::Integer Integer;
+  typedef typename KSpace::Cell Cell;
+  typedef typename KSpace::SCell SCell;
+  typedef typename KSpace::Point Point;
+  typedef typename KSpace::Integer Integer;
 
-  KPreSpace ks;
+  KSpace ks;
   SCell surfel = ks.sCell(Point(1,0), true);
   trace.info() << ks.sIsSurfel(surfel) << std::endl;
 
-  DGtalTrace::functors::TrueSurfelPredicate<KPreSpace> predicateT;
-  DGtalTrace::functors::FalseSurfelPredicate<KPreSpace> predicateF;
+  DGtalTrace::functors::TrueSurfelPredicate<KSpace> predicateT;
+  DGtalTrace::functors::FalseSurfelPredicate<KSpace> predicateF;
   
   bool int2ext = false;
+  trace.info() << "Starting at " << surfel << std::endl;
 
   std::vector<SCell> contour1;
   SurfelAdjacency<2> sAdj(int2ext);
-  DGtal::Surfaces<KPreSpace>::track2DSurface(contour1, ks, sAdj, predicateT, surfel);
-  trace.info() << contour1 << std::endl;
+  DGtal::Surfaces<KSpace>::track2DSurface(contour1, ks, sAdj, predicateT, surfel);
+  trace.info() << "native chain " << contour1 << std::endl;
 
   std::vector<SCell> contour2;
-  SurfelFollowers<KPreSpace> SF;
-  SF.all(contour2, surfel, int2ext);
-  trace.info() << contour2 << std::endl;
-  SF.all(contour2, surfel, int2ext, predicateT);
-  trace.info() << contour2 << std::endl;
-  SF.all(contour2, surfel, int2ext, predicateF);
-  trace.info() << contour2 << std::endl;
+  SurfelFollowers<KSpace> SF;
+  SF.allOutbound(contour2, surfel, int2ext, predicateT);
+  trace.info() << "allOutbound " << contour2 << std::endl;
 
+  trace.info() << "next chain ";
   SCell firstSurfel = surfel;
   bool hasNext;
   do {
@@ -172,13 +174,84 @@ int main(int argc, char** argv) {
   while (hasNext && surfel != firstSurfel);
   trace.info() << std::endl;
 
+  trace.info() << "nextUnique chain ";
   surfel = firstSurfel;
   do {
     trace.info() << surfel << " ";
-    hasNext = SF.nextUnique(surfel, int2ext);
+    hasNext = SF.nextUnique(surfel);
   }
   while (hasNext && surfel != firstSurfel);
   trace.info() << std::endl;
+
+
+  trace.info() << "prev chain ";
+  firstSurfel = surfel;
+  bool hasPrev;
+  do {
+    trace.info() << surfel << " ";
+    hasPrev = SF.prev(surfel, int2ext);
+  }
+  while (hasPrev && surfel != firstSurfel);
+  trace.info() << std::endl;
+
+  trace.info() << "prevUnique chain ";
+  surfel = firstSurfel;
+  do {
+    trace.info() << surfel << " ";
+    hasPrev = SF.prevUnique(surfel);
+  }
+  while (hasPrev && surfel != firstSurfel);
+  trace.info() << std::endl;
+}
+
+int main(int argc, char** argv) {
+  
+  typedef DGtal::Z2i::KSpace KSpace;
+  typedef DGtal::Z2i::KPreSpace KPreSpace;
+  typedef DGtal::Z2i::Domain Domain;
+  typedef DGtal::Z2i::Point Point;
+  typedef ImageSelector<Domain, DGtal::Color>::Type Image;
+  typedef ArcTracker<KSpace, Image> Tracker;
+  
+  Image img = DGtal::STBReader<Image>::import("cali2.png");
+  KSpace ks;
+  ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});
+  // DGtalTrace::functors::ContourPredicate<KSpace, Image> fp(ks, img);
+
+  Tracker t(ks, img);
+  auto result = t.readImage();
+  // DGtal::trace.info() << result;
+
+  DGtal::GridCurve<KSpace> gc(ks);
+  DGtal::Board2D board;
+  Point low = img.domain().lowerBound() - Point::diagonal(1);
+  Point high = img.domain().upperBound() + Point::diagonal(1);
+  board << Domain(low, high);
+  
+  // DGtal::trace.info() << result.size() << std::endl;
+
+  GradientColorMap<int> cmap_grad(0, (int)result.size());
+  cmap_grad.addColor( Color( 50, 50, 255 ) );
+  cmap_grad.addColor( Color( 255, 0, 0 ) );
+  cmap_grad.addColor( Color( 255, 255, 10 ) );
+  cmap_grad.addColor( Color( 25, 255, 255 ) );
+  cmap_grad.addColor( Color( 255, 25, 255 ) );
+  cmap_grad.addColor( Color( 25, 25, 25 ) );
+  
+
+  for (int i = 0; i < result.size(); i++) {
+    GridCurve<KSpace> gc(ks);
+    gc.initFromSCellsVector(result[i]);
+    board << DGtal::CustomStyle(gc.className(), new DGtal::CustomColors(cmap_grad(i), Color::None));   
+    board << gc;
+  }
+  board.saveSVG("arcs.svg");
+  return 0;
+
+
+  //trace.info() << ks << std::endl;
+
+
   /*
   trace.info() << PreSurfelFollowers<KPreSpace>::first(surfel, int2ext);
   trace.info() << contour2 << std::endl;

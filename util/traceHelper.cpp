@@ -22,6 +22,27 @@ namespace {
   auto i = values.begin();
 }
 
+
+template <typename T>
+requires requires (std::ostream& os, T t) {
+  os << t;
+  { os << t } -> std::same_as<std::ostream&>;
+}
+std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
+  if (opt.has_value()) {
+    os << opt.value();
+  }
+  else {
+    if constexpr (std::is_arithmetic_v<T> || std::same_as<std::remove_cvref_t<T>, std::string>) {
+      os << "Φ";
+    }
+    else {
+      os << "[Φ]";
+    }
+  }
+  return os; 
+}
+
 /*
 template <typename T, typename U>
 std::ostream& operator<<(std::ostream& os, const std::pair<T, U>& pair) {
@@ -44,25 +65,6 @@ std::ostream& operator<<(std::ostream& os, const std::tuple<Ts...>& tuple) {
   return os;
 }
 
-template <typename T>
-requires requires (std::ostream& os, T t) {
-  os << t;
-  { os << t } -> std::same_as<std::ostream&>;
-}
-std::ostream& operator<<(std::ostream& os, const std::optional<T>& opt) {
-  if (opt.has_value()) {
-    os << opt.value();
-  }
-  else {
-    if constexpr (std::is_arithmetic_v<T> || std::same_as<std::remove_cvref_t<T>, std::string>) {
-      os << "Φ";
-    }
-    else {
-      os << "[Φ]";
-    }
-  }
-  return os; 
-}
 
 template <typename T, typename = std::enable_if_t<is_container_v<T>>>
 std::ostream& operator<<(std::ostream& os, const T& collection) {

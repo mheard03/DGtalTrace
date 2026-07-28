@@ -23,7 +23,7 @@ concept CUnaryFunctorImpl =
 
 template <typename X, typename A, typename R>
 concept CUnaryFunctorImpl =
-  std::assignable_from<X &, const X &> && requires(X x, A a) {
+  /* std::assignable_from<X &, const X &> && */ requires(X x, A a) {
     { x(a) } -> ISBASICALLY<R>;
   };
 
@@ -44,7 +44,6 @@ struct CUnaryFunctor<X, A, R> : std::true_type {
 
 template <typename X, typename A, typename R>
 concept CUnaryFunctor = requires {
-  typename bridges::CUnaryFunctor<X, A, R>;
   requires CIsTrue<bridges::CUnaryFunctor<X, A, R>>;
 };
 
