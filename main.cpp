@@ -1,3 +1,4 @@
+#include <DGtal/base/BasicTypes.h>
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
 #include <DGtal/images/ImageSelector.h>
@@ -9,11 +10,16 @@
 #include <DGtal/io/readers/STBReader.h>
 #include <DGtal/io/boards/Board2D.h>
 #include <DGtal/io/colormaps/GradientColorMap.h>
+#include <optional>
+#include <ranges>
+#include <type_traits>
+#include <numeric>
 
 
 #include "util/SafeConstImage.cpp"
 #include "util/dimsOf.cpp"
 #include "util/KCoordsAdjuster.cpp"
+// #include "util/KCellNavigator.cpp"
 #include "concepts/CCell.cpp"
 //#include "concepts/CXCellularGridSpaceND.cpp"
 //#include "util/KDomain/KRectangle.cpp"
@@ -33,7 +39,11 @@
 #include "util/SafeConstImage.cpp"
 #include "util/ConstSurfelPredicate.cpp"
 #include "FrontierOrEdgePredicate.cpp"
-
+#include "LabelProps/LabelPropertyMap.cpp"
+#include "LabelProps/ZeroAssignable.cpp"
+#include "util/ConstImageValueAdapter.cpp"
+#include "util/detail/CellDeltaHelper.cpp"
+// #include "ArcSet/custom_views.cpp"
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -135,6 +145,17 @@ std::ostream& operator<<(std::ostream& out, const AdaptedPoint<T>& object) {
   return out;
 }
 
+template <typename T>
+requires requires (T t, std::ostream &out) {
+  t.selfDisplay(out);
+}
+std::ostream&
+operator<<(std::ostream &out,
+           const T& object) {
+  object.selfDisplay(out);
+  return out;
+}
+
 template <typename TKSpace>
 void testSurfelFollowers() {
   typedef TKSpace KSpace;
@@ -204,22 +225,381 @@ void testSurfelFollowers() {
   trace.info() << std::endl;
 }
 
-int main(int argc, char** argv) {
+template <DGtalTrace::concepts::CConstImage TImage>
+bool testSingleLpm() {
+  typedef DGtal::Color Key;
+  typedef LabelPropertyMap<TImage, std::string, false> StringMap;
+  StringMap map;
+
+  std::string potato = "potato";
+  std::string tomato = "tomato";
+  std::string beans = "beans";
+  map[Key::Black] = potato;
+  map[Key::White] = tomato;
+  map[Key::Red] = tomato;
+  map[std::nullopt] = beans;
+
+  bool success = true;
+  success &= map[Key::Black] != map[Key::White];
+  success &= map[Key::Black] != map[std::nullopt];
+  success &= map[Key::White] == map[Key::White];
+  success &= map[Key::White] == map[Key::Red];
+
+  success &= map.hasContrast(Key::Black, Key::White);
+  success &= map.hasContrast(Key::Black, std::nullopt);
+  success &= !map.hasContrast(Key::White, Key::White);
+  success &= !map.hasContrast(Key::White, Key::Red);
+
+  success &= map.contrastLevel(Key::Black, Key::White) == ContrastLevels::FULL;
+  success &= map.contrastLevel(Key::Black, std::nullopt) == ContrastLevels::FULL;
+  success &= map.contrastLevel(Key::White, Key::White) == ContrastLevels::NONE;
+  success &= map.contrastLevel(Key::White, Key::Red) == ContrastLevels::NONE;
+
+  return success;
+}
+
+
+template <DGtalTrace::concepts::CConstImage TImage>
+bool testMultiLpm() {
+  typedef DGtal::Color Key;
+  typedef LabelPropertyMap<TImage, std::string, true> StringSetMap;
+  StringSetMap map;
+
+  map[Key::Black].insert("potato");
+  map[Key::White].insert("tomato");
+  map[Key::Red].insert("tomato");
+  map[Key::Blue].insert("potato");
+  map[Key::Blue].insert("tomato");
+  map[Key::Green].insert("beans");
+  map[Key::Green].insert("tomato");
+  map[Key::Purple] = {};
+  map[Key::Cyan] = {};
+  map[std::nullopt].insert("beans");
+
+  bool success = true;
+  success &= map[Key::Black] != map[Key::White];
+  success &= map[Key::Black] != map[std::nullopt];
+  success &= map[Key::White] == map[Key::White];
+  success &= map[Key::White] == map[Key::Red];
+  success &= map[Key::Black] != map[Key::Blue];
+  success &= map[Key::Cyan] == map[Key::Purple];
+
+  success &= map.hasContrast(Key::Black, Key::White);
+  success &= map.hasContrast(Key::Black, std::nullopt);
+  success &= !map.hasContrast(Key::White, Key::White);
+  success &= !map.hasContrast(Key::White, Key::Red);
+  success &= map.hasContrast(Key::Black, Key::Blue);
+  success &= !map.hasContrast(Key::Cyan, Key::Purple);
   
+  success &= map.contrastLevel(Key::Black, Key::Black) == ContrastLevels::NONE;
+  success &= map.contrastLevel(Key::Purple, Key::Cyan) == ContrastLevels::NONE;
+  success &= map.contrastLevel(Key::White, Key::Red) == ContrastLevels::NONE;
+  success &= map.contrastLevel(Key::Purple, Key::Black) == ContrastLevels::FULL;
+  success &= map.contrastLevel(Key::Black, Key::Blue) == ContrastLevels::PARTIAL;
+  success &= map.contrastLevel(Key::Blue, Key::Black) == ContrastLevels::PARTIAL;
+  success &= map.contrastLevel(Key::Black, Key::White) == ContrastLevels::FULL;
+  success &= map.contrastLevel(Key::White, Key::Black) == ContrastLevels::FULL;
+  success &= map.contrastLevel(Key::Green, Key::Blue) == ContrastLevels::PARTIAL;
+  success &= map.contrastLevel(Key::Blue, Key::Green) == ContrastLevels::PARTIAL;
+  return success;
+}
+
+struct ToString {
+  template <typename T>
+  std::string operator()(const T &value) const {
+    std::stringstream m_sstr;
+    m_sstr << "\"" << value << "\"";
+    return m_sstr.str();
+  }  
+};
+
+template <std::ranges::range R>
+auto to_vector(R&& r) {
+    std::vector<std::ranges::range_value_t<R>> v;
+
+    // if we can get a size, reserve that much
+    if constexpr (requires { std::ranges::size(r); }) {
+        v.reserve(std::ranges::size(r));
+    }
+
+    // push all the elements
+    for (auto&& e : r) {
+        v.push_back(static_cast<decltype(e)&&>(e));
+    }
+
+    return v;
+}
+  template <std::ranges::range Range>
+  using El = std::remove_cvref_t<std::ranges::range_value_t<Range>>;
+
+std::vector<DGtal::Z2i::KSpace::Surfel> /*DGtal::GridCurve<DGtal::Z2i::KSpace>*/ fc2gc(const DGtal::Z2i::KSpace& ks, const DGtal::FreemanChain<DGtal::int32_t>& fc, const DGtal::Z2i::Point& startKCoords) {
+  typedef DGtal::Z2i::KSpace KSpace;
+  typedef KSpace::Point Point;
+  typedef KSpace::Surfel Surfel;
+
+  std::vector<Surfel> surfels;
+  surfels.reserve(fc.size());
+
+  // per DGtal::FreemanChain.ih, 0=E(false), 1=N(false), 2=W(t), 3=S(true)
+  std::array<std::pair<Point, bool>, 4> stepInfo = {{
+    { Point( 1,  0), false },
+    { Point( 0,  1), false },
+    { Point(-1,  0), true },
+    { Point( 0, -1), true }
+  }};
+  char char0 = '0';
+
+  Point displacement;
+  for (char c : fc.chain) {
+    auto os = stepInfo[c-char0];
+    surfels.push_back(ks.sCell(startKCoords + displacement + os.first, os.second));
+    displacement += (2 * os.first);
+  }
+  return surfels;
+}
+
+int main(int argc, char** argv) {
   typedef DGtal::Z2i::KSpace KSpace;
   typedef DGtal::Z2i::KPreSpace KPreSpace;
   typedef DGtal::Z2i::Domain Domain;
   typedef DGtal::Z2i::Point Point;
   typedef ImageSelector<Domain, DGtal::Color>::Type Image;
   typedef ArcTracker<KSpace, Image> Tracker;
-  
-  Image img = DGtal::STBReader<Image>::import("cali2.png");
-  KSpace ks;
-  ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});
-  // DGtalTrace::functors::ContourPredicate<KSpace, Image> fp(ks, img);
 
+  // DGtalTrace::detail::OrthogonalDirections<KSpace> OD;
+  
+
+  /*
+  typedef KSpace::SCell SCell;
+  KSpace ks;
+
+  std::vector<SCell> v;
+  v.push_back(ks.sCell(Point(1,1)));
+  v.push_back(ks.sCell(Point(2,2)));
+  v.push_back(ks.sCell(Point(3,3)));
+  v.push_back(ks.sCell(Point(4,4)));
+
+    // Basic forward / reverse via pipe
+    auto fwd = v | DGtalTrace::views::directionalView(false);
+    auto rev = v | DGtalTrace::views::directionalView(true);
+
+
+    auto fixed = fwd | DGtalTrace::views::oppCellView<decltype(fwd)>;
+
+    for (SCell x : fwd) std::cout << x << ' ';   // 1 2 3 4 5
+    std::cout << '\n';
+    for (SCell x : rev) std::cout << x << ' ';   // 5 4 3 2 1
+    std::cout << '\n';
+    for (SCell x : fixed) std::cout << x << ' ';   // 5 4 3 2 1
+    std::cout << '\n';
+
+    auto v2 = std::views::transform(v, DGtal::functors::Identity);
+    // Chained with other adaptors
+    auto chained = v
+                 | DGtalTrace::views::directionalView(true)
+                 | std::views::take(3);
+
+    for (SCell x : chained) std::cout << x << ' ';  // 4
+    std::cout << '\n';
+    return 0;
+    */
+  /*
+  {
+    std::vector<int> v = { 1, 2, 3 };
+    DGtal::trace.info() << "v:       " << v << std::endl;
+
+    auto fwdv = v | DGtalTrace::detail::directionalView(false);
+    DGtal::trace.info() << "fwd:     " << to_vector(fwdv) << std::endl;
+
+    auto revv = DGtalTrace::detail::directionalView(v, true);
+    DGtal::trace.info() << "rev:     " << to_vector(revv) << std::endl;
+
+    auto revrevv = DGtalTrace::detail::directionalView(revv, true);
+    DGtal::trace.info() << "revrev:  " << to_vector(revrevv) << std::endl;
+  }
+  DGtal::trace.info() << std::endl;
+  KSpace ks;
+  typedef El<std::vector<KSpace::SCell>> scellel;
+
+  bool test = DGtalTrace::concepts::CXXCell<scellel>;
+  {
+    std::vector<KSpace::SCell> v;
+    v.push_back(ks.sCell(Point(1,1)));
+    v.push_back(ks.sCell(Point(2,2)));
+    v.push_back(ks.sCell(Point(3,3)));
+    v.push_back(ks.sCell(Point(4,4)));
+    DGtal::trace.info() << "v:       " << v << std::endl;
+
+    auto fwdv = DGtalTrace::detail::directionalView(v, false);
+    DGtal::trace.info() << "fwd:     " << to_vector(fwdv) << std::endl;
+
+    auto revv = DGtalTrace::detail::directionalView(v, true);
+    DGtal::trace.info() << "rev:     " << to_vector(revv) << std::endl;
+
+    auto revrevv = DGtalTrace::detail::directionalView(revv, true);
+    DGtal::trace.info() << "revrev:  " << to_vector(revrevv) << std::endl;
+  }
+  return 0;
+  */
+  /*
+  typedef ZeroAssignable<std::string> ZeroString;
+  
+  ZeroString z;
+  trace.info() << "1 z: " << z << std::endl;
+  z = "potato";
+  trace.info() << "2 z: " << z << std::endl;
+
+  ZeroString z2(z);
+  trace.info() << "3 z2: " << z2 << std::endl;
+  z2 = "tomato";
+  trace.info() << "4 z2: " << z2 << std::endl;
+  z2 = z;
+  trace.info() << "5 z2: " << z2 << std::endl;
+  z2 = 0;
+  trace.info() << "6 z2: " << z2 << std::endl;
+  z2 = 17;
+  trace.info() << "7 z2: " << z2 << std::endl;
+  return 0;
+  */
+
+  // DGtal::trace.info() << testSingleLpm<Image>() << std::endl;
+  // DGtal::trace.info() << testMultiLpm<Image>() << std::endl;
+
+  Image img = DGtal::STBReader<Image>::import("cali2.png");
+/*
+  ConstImageValueAdapter<Image, Image::Value> noopAdapter(img);
+  ConstImageValueAdapter<Image, std::optional<Image::Value>> optAdapter(img);
+
+  ToString ts;
+  ConstImageValueAdapter<Image, std::string, ToString> strAdapter(img, ts);
+
+
+
+  Point p = {-1, -1};
+  trace.info() << "noopAdapter: " << noopAdapter(p) << std::endl;
+  trace.info() << "optAdapter: " << optAdapter(p) << std::endl;
+  trace.info() << "strAdapter: " << strAdapter(p) << std::endl;
+
+  noopAdapter.setDefaultValue(DGtal::Color::Purple);
+  optAdapter.setDefaultValue(DGtal::Color::Blue);
+  strAdapter.setDefaultValue("butts");
+
+  trace.info() << "noopAdapter: " << noopAdapter(p) << std::endl;
+  trace.info() << "optAdapter: " << optAdapter(p) << std::endl;
+  trace.info() << "strAdapter: " << strAdapter(p) << std::endl;
+
+  for (auto& p : img.domain()) {
+    auto value = img(p);
+
+    if (value != noopAdapter(p)) throw "noopFail";
+    if (value != optAdapter(p).value()) throw "optFail";
+    if (ts(value) != strAdapter(p)) throw "strFail";
+  }
+*/
+  //return 0;
+
+  
+  KSpace ks;
+  typedef KSpace::Surfel Surfel;
+  typedef KSpace::SCell SCell;
+  typedef KSpace::Cell Cell;
+  typedef KSpace::Point Point;
+  KCoordsAdjuster<KSpace> kca(ks);
+
+  DGtalTrace::detail::CellDeltaHelper<KSpace> cdh(ks);
+  typedef Cell TCell;
+  ks.init(Point(0,0), Point(5,5), {KSpace::Closure::PERIODIC, KSpace::Closure::PERIODIC});
+  for (auto x : { 0, 5, 12 }) {
+    for (auto y : { 0, 6, 12 }) {  
+      const TCell startCell = ks.uCell(Point(x, y));
+      for (auto dim : { 0, 1 }) {
+        for (auto dir : { -2, -1, 1, 2 }) {
+          Point endKCoords = Point(x,y);
+          endKCoords[dim] += dir;
+          if (!ks.cIsInside(endKCoords)) continue;
+
+          const TCell endCell = ks.uCell(endKCoords);
+          trace.info() << "Cells: " << startCell << " -> " << endCell << std::endl;
+          auto delta = cdh.getDelta(startCell, endCell);
+          trace.info() << "  " << cdh.getRawDelta(startCell, endCell) << " = " << delta;
+          assert(dim == delta.dim);
+          trace.info() << ".";
+          assert((dir > 0 && delta.sign) || (dir < 0 && !delta.sign));
+          trace.info() << ".";
+          TCell copy = kca.uCell(startCell);
+          kca.shift(copy, delta);
+          assert(copy == endCell);
+          trace.info() << ".";
+          kca.shift(copy, delta.opp());
+          assert(copy == startCell);
+          trace.info() << "." << std::endl;
+        }
+      }
+    }
+  }
+return 0;
+
+  ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});
   Tracker t(ks, img);
   auto result = t.readImage();
+
+  GridCurve<KSpace> gc(ks);
+  for (int i = 0; i < 2; i++) {
+    gc.initFromSCellsVector(result[i]);
+    DGtal::trace.info() << "gc: " << gc << std::endl;
+
+    Surfel firstSurfel = *gc.begin();
+    Point gcStartPoint = ks.sKCoords(ks.sIndirectIncident(firstSurfel, *ks.sDirs(firstSurfel)));
+    DGtal::trace.info() << "gc starts at " << gcStartPoint << std::endl;
+
+    auto codesRange = gc.getCodesRange();
+    std::string chain(codesRange.begin(), codesRange.end());
+    DGtal::trace.info() << "chain from gc: " << chain << std::endl;
+
+    FreemanChain<KSpace::Integer> fc(chain, gcStartPoint[0], gcStartPoint[1]);
+    DGtal::trace.info() << "fc: " << fc << std::endl;
+    DGtal::trace.info() << std::endl;
+
+    std::vector<Surfel> surfels;
+    surfels.reserve(fc.size());
+
+
+    // per DGtal::FreemanChain.ih, 0=E(false), 1=N(false), 2=W(t), 3=S(true)
+    const std::array<const std::pair<const Point, const bool>, 4> stepInfo = {{
+      { Point( 1,  0), false },
+      { Point( 0,  1), false },
+      { Point(-1,  0), true },
+      { Point( 0, -1), true }
+    }};
+    char char0 = '0';
+
+    Point displacement;
+    for (char c : fc.chain) {
+      
+      auto os = stepInfo.at(c-char0);
+      DGtal::trace.info() << c << ": " << os << std::endl;
+
+
+      Point surfelKCoords = gcStartPoint + displacement + os.first;
+      Surfel s = ks.sCell(surfelKCoords, os.second);
+      // surfels.push_back(ks.sCell(gcStartPoint + displacement + os.first, os.second));
+
+      DGtal::trace.info() << s << std::endl;
+
+      displacement = displacement + os.first + os.first;
+      DGtal::trace.info() << "displacement: " << displacement << std::endl;
+
+    }
+    
+
+    // DGtal::trace.info() << "reconstructed: " << fc2gc(ks, fc, gcStartPoint) << std::endl;
+    DGtal::trace.info() << std::endl << std::endl;
+
+  }
+
+  return 0;
+  /*
+   
   // DGtal::trace.info() << result;
 
   DGtal::GridCurve<KSpace> gc(ks);
@@ -247,7 +627,7 @@ int main(int argc, char** argv) {
   }
   board.saveSVG("arcs.svg");
   return 0;
-
+*/
 
   //trace.info() << ks << std::endl;
 

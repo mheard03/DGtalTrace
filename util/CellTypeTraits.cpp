@@ -8,14 +8,14 @@ namespace DGtalTrace {
 
 template <concepts::CXXCell TCell>
 struct CellTypeTraits {
- private:
-  static constexpr bool IsSigned = concepts::CSXCell<TCell>;
- public:
-  using USelf =    TCell::CellularGridSpace::Cell;
-  using SSelf =    TCell::CellularGridSpace::SCell;  
-  using UPreSelf = TCell::PreCellularGridSpace::Cell;
-  using SPreSelf = TCell::PreCellularGridSpace::SCell;
-  using PreSelf =  std::conditional_t<concepts::CSXCell<TCell>, SPreSelf, UPreSelf>;
+  using USelf = typename TCell::CellularGridSpace::Cell;
+  using SSelf = typename TCell::CellularGridSpace::SCell;  
+  using Self =  std::conditional_t<concepts::CSXCell<TCell>, SSelf, USelf>;  
+
+  using KPreSpace = TCell::PreCellularGridSpace;
+  using UPreSelf =  typename KPreSpace::Cell;
+  using SPreSelf =  typename KPreSpace::SCell;
+  using PreSelf =   std::conditional_t<concepts::CSXCell<TCell>, SPreSelf, UPreSelf>;  
 };
 
 }
