@@ -76,15 +76,22 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
 
 
   // ----------------------- inside/valid/periodic  ---------------------------
+  bool isValid(const Point& kCoords) const {
+    if constexpr (isPreSpace)
+      return true;
+    else
+      return myKPtr->cIsValid(kCoords);
+  }
   template <concepts::CXXCell TCell>
   requires canRead<TCell>
   bool isValid(const TCell& cell) const {
-    if constexpr (isPreSpace) {
+    if constexpr (isPreSpace)
       return true;
-    }
-    else {
-      return myKPtr->cIsValid(kCoords(cell));
-    }
+    else
+      return isValid(kCoords(cell));
+  }
+  void assertValid(const Point& kCoords) const {
+    ASSERT(isValid(kCoords));
   }
   template <concepts::CXXCell TCell>
   requires canRead<TCell>
@@ -92,15 +99,22 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
     ASSERT(isValid(cell));
   }
 
+  bool isInside(const Point& kCoords) const {
+    if constexpr (isPreSpace)
+      return true;
+    else
+      return myKPtr->cIsInside(kCoords);
+  }
   template <concepts::CXXCell TCell>
   requires canRead<TCell>
   bool isInside(const TCell& cell) const {
-    if constexpr (isPreSpace) {
+    if constexpr (isPreSpace)
       return true;
-    }
-    else {
-      return myKPtr->cIsInside(kCoords(cell));
-    }
+    else
+      return isInside(kCoords(cell));
+  }
+  void assertInside(const Point& kCoords) const {
+    ASSERT(isValid(kCoords));
   }
   template <concepts::CXXCell TCell>
   requires canRead<TCell>
@@ -108,10 +122,22 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
     ASSERT(isInside(cell));
   }
 
-
+  bool isSpacePeriodic() const {
+    if constexpr (isPreSpace) return false;
+    return myKPtr->isAnyDimensionPeriodic();
+  }
   bool isSpacePeriodic(DGtal::Dimension k) const {
-    if constexpr (concepts::CPreCellularGridSpaceND<KSpace>) return false;
+    if constexpr (isPreSpace) return false;
     return myKPtr->isSpacePeriodic(k);
+  }
+  auto getBoundaries() {
+    std::array<std::optional<typename KSpace::Closure>, KSpace::dimension> result;
+    if constexpr (!isPreSpace) {
+      for (DGtal::Dimension k = 0; k < KSpace::dimension; k++) {
+        result[k] = myKPtr->getClosure(k);
+      }
+    }
+    return result;
   }
 
 
@@ -125,52 +151,53 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
   template <concepts::CXXCell TCell>
   requires canCopy<TCell, PreCell>
   static PreCell uPreCell(const TCell& aPreCell) {
-    return KPreSpace::uCell(kCoords(aPreCell));
+    return KPreSpace::uCell(Base::kCoords(aPreCell));
   }
   template <concepts::CXXCell TCell>
   requires canCopy<TCell, SPreCell>
   static SPreCell sPreCell(const TCell& aPreCell) {
-    return KPreSpace::sCell(kCoords(aPreCell), sign(aPreCell));
+    return KPreSpace::sCell(Base::kCoords(aPreCell), Base::sign(aPreCell));
   }
 
   // ----------------------- KPreSpace: Cell creation (static)  ---------------
   static KSpace::Cell uCell(const Point& kCoords) 
-  requires (concepts::CPreCellularGridSpaceND<KSpace>) {
+  requires isPreSpace {
     return uPreCell(kCoords);
   }
-  static KSpace::SCell sCell(const Point& kCoords, const Sign sign = KSpace::POS) {
+  static KSpace::SCell sCell(const Point& kCoords, const Sign sign = KSpace::POS) 
+  requires isPreSpace {
     return sPreCell(kCoords, sign);
   }
 
   template <concepts::CXXCell TCell>
-  requires canCopy<TCell, Cell> && (concepts::CPreCellularGridSpaceND<KSpace>)
+  requires isPreSpace && canCopy<TCell, Cell>
   static KSpace::Cell uCell(const TCell& aCell) {
     return uPreCell(aCell);
   }
   template <concepts::CXXCell TCell>
-  requires canCopy<TCell, Cell> && (concepts::CPreCellularGridSpaceND<KSpace>)
+  requires isPreSpace && canCopy<TCell, Cell>
   static KSpace::SCell sCell(const TCell& aCell) {
     return sPreCell(aCell);
   }
 
   // ----------------------- KSpace: Cell creation (instance)  ----------------
   KSpace::Cell uCell(const Point& kCoords) const 
-  requires (!concepts::CPreCellularGridSpaceND<KSpace>) {
+  requires (!isPreSpace) {
     return myKPtr->uCell(kCoords);
   }
   KSpace::SCell sCell(const Point& kCoords, const Sign sign = KSpace::POS) const 
-  requires (!concepts::CPreCellularGridSpaceND<KSpace>) {
+  requires (!isPreSpace) {
     return myKPtr->sCell(kCoords, sign);
   }
   template <concepts::CXXCell TCell>
-  requires (!concepts::CPreCellularGridSpaceND<KSpace>) && canCopy<TCell, Cell>
+  requires (!isPreSpace) && canCopy<TCell, Cell>
   KSpace::Cell uCell(const TCell& aCell) const {
     return myKPtr->uCell(Base::kCoords(aCell));
   }
   template <concepts::CXXCell TCell>
-  requires (!concepts::CPreCellularGridSpaceND<KSpace>) && canCopy<TCell, SCell>
+  requires (!isPreSpace) && canCopy<TCell, SCell>
   KSpace::SCell sCell(const TCell& aCell) const {
-    return myKPtr->sCell(Base::kCoords(aCell), sign(aCell));
+    return myKPtr->sCell(Base::kCoords(aCell), Base::sign(aCell));
   }
   
   // ----------------------- shift  -------------------------------------------
@@ -183,8 +210,21 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
   void shift(TCell& cell, const CellDelta<KSpace>& delta) const {
     setKCoord(cell, delta.dim, Base::kCoord(cell, delta.dim) + delta.smag());
   }
+  
+  template <concepts::CXXCell TCell>
+  static SPreCell sShifted(const TCell& aCell, const CellDelta<KSpace>& delta) {
+    auto result = sPreCell(aCell, delta.sign);
+    shift(result, delta);
+    return result;
+  }
+      
+  template <concepts::CXXCell TCell>
+  static PreCell uShifted(const TCell& aCell, const CellDelta<KSpace>& delta) {
+    auto result = uPreCell(aCell);
+    shift(result, delta);
+    return result;
+  }
 
-    
  private:
   const KSpace* myKPtr = nullptr;
   static inline const KPreSpace* myPreKPtr = &detail::preSpaces<KSpace>;

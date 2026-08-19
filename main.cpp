@@ -12,10 +12,13 @@
 #include <DGtal/io/colormaps/GradientColorMap.h>
 #include <optional>
 #include <ranges>
+#include <tuple>
 #include <type_traits>
 #include <numeric>
+#include <variant>
+#include <typeindex>
 
-
+#include "concepts/CXCellularGridSpaceND.cpp"
 #include "util/SafeConstImage.cpp"
 #include "util/dimsOf.cpp"
 #include "util/KCoordsAdjuster.cpp"
@@ -31,7 +34,7 @@
 //#include "util/KCellRange/CellRange.cpp"
 
 //#include "util/makeRange.cpp"
-#include "util/traceHelper.cpp"
+
 
 
 #include "util/SurfelFollowers.cpp"
@@ -43,6 +46,9 @@
 #include "LabelProps/ZeroAssignable.cpp"
 #include "util/ConstImageValueAdapter.cpp"
 #include "util/detail/CellDeltaHelper.cpp"
+#include "util/KPreCellNavigator.cpp"
+#include "util/tests/testCellDeltaHelper.cpp"
+#include "util/tests/testKPreCellNavigator.cpp"
 // #include "ArcSet/custom_views.cpp"
 
 using namespace DGtal;
@@ -142,17 +148,6 @@ requires requires { sizeof(AdaptedPoint<T>); } &&
   requires (std::ostream out, T object) { out << object; }
 std::ostream& operator<<(std::ostream& out, const AdaptedPoint<T>& object) {
   out << static_cast<T>(object);
-  return out;
-}
-
-template <typename T>
-requires requires (T t, std::ostream &out) {
-  t.selfDisplay(out);
-}
-std::ostream&
-operator<<(std::ostream &out,
-           const T& object) {
-  object.selfDisplay(out);
   return out;
 }
 
@@ -358,6 +353,55 @@ std::vector<DGtal::Z2i::KSpace::Surfel> /*DGtal::GridCurve<DGtal::Z2i::KSpace>*/
   return surfels;
 }
 
+
+template <DGtalTrace::concepts::CXCell TCell>
+void testCdhDeltas() {
+  typedef typename TCell::CellularGridSpace KSpace;
+  typedef typename KSpace::Point Point;
+  typedef KCoordsAdjuster<KSpace> KCA;
+  typedef DGtalTrace::detail::CellDeltaHelper<KSpace> CDH;
+
+  KSpace ks;
+  KCoordsAdjuster<KSpace> kca(ks);
+  DGtalTrace::detail::CellDeltaHelper<KSpace> cdh(ks);
+  ks.init(Point(0,0), Point(5,5), {KSpace::Closure::PERIODIC, KSpace::Closure::PERIODIC});
+  
+  auto makeCell = [&ks](auto p) { 
+    if constexpr(std::same_as<TCell, typename KSpace::Cell>) return ks.uCell(p);
+    if constexpr(std::same_as<TCell, typename KSpace::SCell>) return ks.sCell(p);
+  };
+
+  for (auto x : { 0, 5, 12 }) {
+    for (auto y : { 0, 6, 12 }) {  
+      const TCell startCell = makeCell(Point(x, y));
+      for (auto dim : { 0, 1 }) {
+        for (auto dir : { -2, -1, 1, 2 }) {
+          Point endKCoords = Point(x,y);
+          endKCoords[dim] += dir;
+          if (!ks.cIsInside(endKCoords)) continue;
+
+          const TCell endCell = makeCell(endKCoords);
+          // trace.info() << "Cells: " << startCell << " -> " << endCell << std::endl;
+          auto delta = cdh.getDelta(startCell, endCell);
+          // trace.info() << "  " << cdh.getRawDelta(startCell, endCell) << " = " << delta;
+          assert(dim == delta.dim);
+          // trace.info() << ".";
+          assert((dir > 0 && delta.sign) || (dir < 0 && !delta.sign));
+          // trace.info() << ".";
+          TCell copy = makeCell(startCell);
+          kca.shift(copy, delta);
+          assert(copy == endCell);
+          // trace.info() << ".";
+          kca.shift(copy, delta.opp());
+          assert(copy == startCell);
+          // trace.info() << "." << std::endl;
+        }
+      }
+    }
+  }
+}
+
+
 int main(int argc, char** argv) {
   typedef DGtal::Z2i::KSpace KSpace;
   typedef DGtal::Z2i::KPreSpace KPreSpace;
@@ -498,7 +542,15 @@ int main(int argc, char** argv) {
 */
   //return 0;
 
-  
+  auto results = testCdhDeltaBasics();
+  DGtal::trace.info() << results.size() << " problems." << std::endl;
+
+  KPreSpace pks;
+  results = testSurfelPointelMethods(pks);
+  DGtal::trace.info() << results.size() << " problems." << std::endl;
+
+  return 0;
+
   KSpace ks;
   typedef KSpace::Surfel Surfel;
   typedef KSpace::SCell SCell;
@@ -506,8 +558,11 @@ int main(int argc, char** argv) {
   typedef KSpace::Point Point;
   KCoordsAdjuster<KSpace> kca(ks);
 
+  testCdhDeltas<KSpace::Cell>();
+  testCdhDeltas<KSpace::SCell>();
+
+/*
   DGtalTrace::detail::CellDeltaHelper<KSpace> cdh(ks);
-  typedef Cell TCell;
   ks.init(Point(0,0), Point(5,5), {KSpace::Closure::PERIODIC, KSpace::Closure::PERIODIC});
   for (auto x : { 0, 5, 12 }) {
     for (auto y : { 0, 6, 12 }) {  
@@ -519,24 +574,25 @@ int main(int argc, char** argv) {
           if (!ks.cIsInside(endKCoords)) continue;
 
           const TCell endCell = ks.uCell(endKCoords);
-          trace.info() << "Cells: " << startCell << " -> " << endCell << std::endl;
+          // trace.info() << "Cells: " << startCell << " -> " << endCell << std::endl;
           auto delta = cdh.getDelta(startCell, endCell);
-          trace.info() << "  " << cdh.getRawDelta(startCell, endCell) << " = " << delta;
+          // trace.info() << "  " << cdh.getRawDelta(startCell, endCell) << " = " << delta;
           assert(dim == delta.dim);
-          trace.info() << ".";
+          // trace.info() << ".";
           assert((dir > 0 && delta.sign) || (dir < 0 && !delta.sign));
-          trace.info() << ".";
+          // trace.info() << ".";
           TCell copy = kca.uCell(startCell);
           kca.shift(copy, delta);
           assert(copy == endCell);
-          trace.info() << ".";
+          // trace.info() << ".";
           kca.shift(copy, delta.opp());
           assert(copy == startCell);
-          trace.info() << "." << std::endl;
+          // trace.info() << "." << std::endl;
         }
       }
     }
   }
+    */
 return 0;
 
   ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});

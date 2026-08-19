@@ -36,7 +36,7 @@ INCLUDE(${CPM_DOWNLOAD_LOCATION})
 CPMAddPackage(
   NAME magic_enum
   GITHUB_REPOSITORY Neargye/magic_enum
-  GIT_TAG v0.9.7
+  GIT_TAG v0.9.8
 )
 
 # rapidcsv  -------------------------------------------------------------------

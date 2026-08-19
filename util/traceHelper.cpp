@@ -3,6 +3,7 @@
 #include <optional>
 #include <type_traits>
 #include <vector>
+#include <map>
 #include <ostream>
 
 template<typename T, class = void>
@@ -94,3 +95,16 @@ std::ostream& operator<<(std::ostream& os, const T& collection) {
   return os;
 }
 
+
+#define FN_STREAM_SELFDISPLAY(...) \
+std::ostream& operator<<(std::ostream &out, const __VA_ARGS__& object) { \
+  object.selfDisplay(out); \
+  return out; \
+}
+
+#define FN_STREAM_SELFDISPLAY_T(...) \
+template <typename T> \
+std::ostream& operator<<(std::ostream &out, const __VA_ARGS__& object) { \
+  object.selfDisplay(out); \
+  return out; \
+}

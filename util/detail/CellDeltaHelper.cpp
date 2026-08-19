@@ -1,4 +1,5 @@
 #pragma once
+#include "../traceHelper.cpp"
 #include <DGtal/base/Assert.h>
 #include <DGtal/base/Common.h>
 #include <DGtal/base/ConstAlias.h>
@@ -52,10 +53,13 @@ public:  // <-- TODO: Private
       ASSERT_MSG(isValid(), "Tried to cast invalid RawDelta to Delta");
       return CellDelta{dim, expectedMagnitude, sign()};
     }
+    inline Integer expectedSmag() const {
+      return static_cast<Integer>(expectedMagnitude);
+    };
     void selfDisplay(std::ostream &out) const {
       out << "[Raw Delta " << smag() << " on dim " << dim;
       if (!isValid()) {
-        out << "; range [" << start << "->" << end << "], expected " << expectedMagnitude;
+        out << "; range [" << start << "->" << end << "], expected " << expectedSmag();
       }
       out << "]";
     }
@@ -108,14 +112,14 @@ public:
       Cell shifted = myKPtr->uCell(KCA::kCoords(startCell));
 
       // shift positive and check
-      myKPtr->uSetKCoord(shifted, raw.dim, KCA::kCoord(startCell, raw.dim) + raw.expectedMagnitude);
+      myKPtr->uSetKCoord(shifted, raw.dim, KCA::kCoord(startCell, raw.dim) + raw.expectedSmag());
       // DGtal::trace.info() << std::endl << "  trying shift " << startCell << " -> " << shifted << " vs. " << endCell << std::endl;
       if (KCA::kCoord(shifted, raw.dim) == KCA::kCoord(endCell, raw.dim)) {
         return CellDelta{raw.dim, raw.expectedMagnitude, KSpace::POS};
       }
 
       // shift negative and check
-      myKPtr->uSetKCoord(shifted, raw.dim, KCA::kCoord(startCell, raw.dim) - raw.expectedMagnitude);
+      myKPtr->uSetKCoord(shifted, raw.dim, KCA::kCoord(startCell, raw.dim) - raw.expectedSmag());
       // DGtal::trace.info() << std::endl << "  trying shift " << startCell << " -> " << shifted << " vs. " << endCell << std::endl;
       if (KCA::kCoord(shifted, raw.dim) == KCA::kCoord(endCell, raw.dim)) {
         return CellDelta{raw.dim, raw.expectedMagnitude, KSpace::NEG};
@@ -123,6 +127,26 @@ public:
     }
 
     return raw;
+  }
+
+  static CellDelta getDelta(const KPreSpace::Surfel aSurfel, const Integer aMag) {
+    ASSERT_MSG(KCA::isSurfel(aSurfel), "supplied cell was not a surfel");
+    Magnitude mag = static_cast<Magnitude>(std::abs(aMag));
+    
+    auto dim = *KPreSpace::sDirs(aSurfel);
+    auto sign = KCA::sign(aSurfel);
+    if (aMag < 0) sign = !sign;
+    return CellDelta{dim, mag, sign};
+  }
+
+  static CellDelta getInwardDelta(const KPreSpace::Surfel aSurfel, const Integer aMag) {
+    ASSERT_MSG(KCA::isSurfel(aSurfel), "supplied cell was not a surfel");
+    Magnitude mag = static_cast<Magnitude>(std::abs(aMag));
+    
+    auto dim = KPreSpace::sOrthDir(aSurfel);
+    auto sign = KPreSpace::sDirect(aSurfel, dim);
+    if (aMag < 0) sign = !sign;
+    return CellDelta{dim, mag, sign};
   }
 
 private:
@@ -134,4 +158,3 @@ private:
 
 } // end namespace detail
 } // end namespace DGtalTrace
-

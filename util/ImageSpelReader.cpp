@@ -8,20 +8,11 @@
 
 #include "../concepts/CXCellularGridSpaceND.cpp"
 #include "../concepts/dgtal/images/CConstImage.cpp"
+#include "OptValue.cpp"
 #include "CellTypeTraits.cpp"
 #include "KCoordsAdjuster.cpp"
 
 namespace DGtalTrace {
-
-namespace {
-template <typename T> struct is_optional : std::false_type {};
-template <typename T> struct is_optional<std::optional<T>> : std::true_type {};
-template <typename T> concept IsOptional = is_optional<std::remove_cvref_t<T>>::value;
-
-template <typename T>
-using OptValue_T = std::conditional_t<IsOptional<T>, T, std::optional<T>>
-;
-} // end anonymous namespace
 
 template <concepts::CXCellularGridSpaceND TKSpace, concepts::CConstImage TImage>
 requires std::same_as<typename TKSpace::Point, typename TImage::Point>
@@ -33,7 +24,7 @@ public:
   typedef TImage Image;
   typedef typename Image::Point Point;
   typedef typename Image::Value Value;
-  typedef OptValue_T<Value> OptValue;
+  typedef detail::OptValue<Value> OptValue;
   typedef std::pair<OptValue, OptValue> OptValuePair;
   typedef std::optional<Point> OptPoint;
   typedef std::pair<OptPoint, OptPoint> OptPointPair;
