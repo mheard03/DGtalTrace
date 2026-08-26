@@ -102,17 +102,16 @@ concept CHasKSpace = (CXXCell<TCell> && ...) &&
                      CXCellularGridSpaceND<KXSpace> &&
                      (std::same_as<KXSpace, typename TCell::CellularGridSpace> && ...);
 
-/*
-template <typename KXSpace, typename ... TCell>
-concept CHasCell = CXCellularGridSpaceND<KXSpace> &&
-                   (CXXCell<TCell> && ...) && 
-                   (CHasKSpace<KSpace, TCell> && ...);
 
-template <typename KXSpace, typename ... TCell>
-concept CHasXCell = CXCellularGridSpaceND<KXSpace> &&
-                    (CXXCell<TCell> && ...) && 
-                    ((CHasKSpace<KSpace, TCell> || CHasKPreSpace<KSpace, TCell>) && ...);
-*/
+template <typename T>
+concept CCellularGridSpace2D = CCellularGridSpaceND<T, 2>;
+
+template <typename T>
+concept CPreCellularGridSpace2D = CPreCellularGridSpaceND<T, 2>;
+
+template <typename T>
+concept CXCellularGridSpace2D = CXCellularGridSpaceND<T, 2>;
+
 
 namespace {
 /*

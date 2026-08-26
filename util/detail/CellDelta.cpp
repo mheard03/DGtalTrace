@@ -2,45 +2,59 @@
 #include "../traceHelper.cpp"
 #include "../../concepts/CXCellularGridSpaceND.cpp"
 #include <DGtal/base/Assert.h>
-
+#include <DGtal/helpers/StdDefs.h>
+#include <DGtal/kernel/PointVector.h>
+#include <concepts>
+#include <type_traits>
 
 namespace DGtalTrace {
+namespace detail {
 
-template <concepts::CXCellularGridSpaceND TKSpace>
+template <DGtal::Dimension DIM, typename TInteger>
 struct CellDelta {
-  typedef TKSpace KSpace;
-  typedef typename KSpace::Integer Integer;
-  typedef typename KSpace::Sign Sign;
+  typedef TInteger Integer;
+  typedef typename DGtal::PointVector<DIM, TInteger> Vector;
 
-  enum class Magnitude : Integer {
-    ONE = 1,
-    TWO = 2
-  };
   DGtal::Dimension dim;
-  Magnitude mag;
-  Sign sign;
+  Integer delta;
 
-  Integer smag() const {
-    if (sign) {
-      return static_cast<Integer>(mag);
-    }
-    else {
-      return -static_cast<Integer>(mag);
-    }
+  inline Integer abs() const {
+    return std::abs(delta);
   }
-
-  CellDelta opp() const {
-    return CellDelta<TKSpace>{dim, mag, !sign};
+  auto opp() const {
+    return CellDelta<DIM, TInteger>{dim, -delta};
   }
-  CellDelta toMag(Magnitude aMag) const {
-    return CellDelta<TKSpace>{dim, aMag, sign};
+  auto relative(TInteger relativeDelta) const {
+    TInteger newDelta = (delta > 0) ? relativeDelta : -relativeDelta;
+    auto result = CellDelta<DIM, TInteger>{dim, relativeDelta};
+    ASSERT(result.isValid());
+    return result;
+  }
+  bool isValid() const {
+    return dim < DIM && delta != 0 && abs() <= 2;
+  }
+  operator Vector() const {
+    ASSERT(isValid());
+    Vector v = Vector::ZERO;
+    v[dim] = delta;
+    return v;
   }
 
   void selfDisplay(std::ostream &out) const {
-    out << "[Delta " << smag() << " on dim " << dim << "]";
+    out << "[Delta " << delta << " on dim " << dim << "]";
   }
 };
 
-FN_STREAM_SELFDISPLAY_T(DGtalTrace::CellDelta<T>)
+} // end namespace detail
+
+template <concepts::CXCellularGridSpace2D TKSpace>
+using CellDeltaSelector = detail::CellDelta<TKSpace::DIM, typename TKSpace::Integer>;
+
+
+template <DGtal::Dimension DIM, typename TInteger>
+std::ostream& operator<<(std::ostream &out, const DGtalTrace::detail::CellDelta<DIM, TInteger> &object) {
+  object.selfDisplay(out);
+  return out;
+}
 
 } // end namespace DGtalTrace

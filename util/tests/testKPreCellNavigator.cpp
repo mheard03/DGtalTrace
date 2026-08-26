@@ -1,6 +1,7 @@
 #pragma once
 #include <DGtal/base/Common.h>
 #include <DGtal/helpers/StdDefs.h>
+#include <DGtal/topology/SCellsFunctors.h>
 #include "../../concepts/CCell.cpp"
 #include "../../concepts/CXCellularGridSpaceND.cpp"
 #include "../CellTypeTraits.cpp"
@@ -22,6 +23,7 @@ std::vector<std::string> testSurfelPointelMethods(const TKSpace& ks) {
   KCA kca;
   KCN kcn;
   std::vector<std::string> errors;
+  DGtal::functors::SCellToArrow<KSpace> fnArrow(ks);
 
   int i = -1;
   for (auto x : { 0, 3 }) {
@@ -48,10 +50,14 @@ std::vector<std::string> testSurfelPointelMethods(const TKSpace& ks) {
 
         Cell surfelHeadResult = kcn.surfelHead(surfel);
         if (surfelHeadResult != trueHead) {
+          DGtal::trace.info() << "arrow" << fnArrow(surfel) << std::endl;
+          DGtal::trace.info() << "sDirect" << ks.sDirect(surfel, dir) << std::endl;
           writeError("surfelHead()", trueHead, surfelHeadResult);
         }
         Cell surfelTailResult = kcn.surfelTail(surfel);
         if (surfelTailResult != trueTail) {
+          DGtal::trace.info() << "arrow" << fnArrow(surfel) << std::endl;
+          DGtal::trace.info() << "sDirect" << ks.sDirect(surfel, dir) << std::endl;
           writeError("surfelTail()", trueTail, surfelTailResult);
         }
       }

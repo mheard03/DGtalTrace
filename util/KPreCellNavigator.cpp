@@ -2,6 +2,7 @@
 #include <DGtal/base/Assert.h>
 #include <DGtal/kernel/NumberTraits.h>
 #include <DGtal/topology/KhalimskySpaceND.h>
+#include <algorithm>
 #include <concepts>
 #include <optional>
 #include <string>
@@ -56,25 +57,62 @@ private:
     }
   }
 
+  template <concepts::CXXCell TCell>
+  inline static auto dirs(const TCell& surfel) {
+    if constexpr (concepts::CSXCell<TCell>) {
+      return *KPreSpace::sDirs(surfel);
+    }
+    else {
+      return *KPreSpace::uDirs(surfel);
+    }
+  }
+
+  template <concepts::CXXCell TCell>
+  inline static auto orthDirs(const TCell& surfel) {
+    if constexpr (concepts::CSXCell<TCell>) {
+      return *KPreSpace::sOrthDirs(surfel);
+    }
+    else {
+      return *KPreSpace::uOrthDirs(surfel);
+    }
+  }
+
+  template <concepts::CXXCell TCell>
+  inline static std::vector<PreSelf<TCell>> incident(const TCell& cell, DGtal::Dimension k, bool up) {
+    if constexpr (concepts::CSXCell<TCell>) {
+      return KPreSpace::sIncident(cell, k, up);
+    }
+    else {
+      return KPreSpace::uIncident(cell, k, up);
+    }
+  }
+
+  static std::vector<Cell> unsign(const std::vector<SCell>& cells) {
+    std::vector<Cell> result;
+    result.reserve(cells.size());
+    std::transform(cells.begin(), cells.end, result.begin(), [](SCell& cell) { return KCA::unsigns(cell); });
+    return result;
+  }
+
 public:
   // ----- Surfel: Get incident pointels  -------------------------------------
   inline static Cell surfelHead(const SCell& surfel) {
     validateCell(surfel, 1, true);
-    return KCA::uShifted(surfel, CDH::getDelta(surfel, 1));
+    return KCA::unsigns(KPreSpace::sDirectIncident(surfel, *KPreSpace::sDirs(surfel)));
   }
 
   inline static Cell surfelTail(const SCell& surfel) {
     validateCell(surfel, 1, true);
-    return KCA::uShifted(surfel, CDH::getDelta(surfel, -1));
+    return KCA::unsigns(KPreSpace::sIndirectIncident(surfel, *KPreSpace::sDirs(surfel)));
   }
 
-  template <concepts::CXXCell TCell>
-  static std::array<Cell, 2> surfelIncidentPointels(const TCell& surfel) {
+  template <concepts::CUXCell TCell>
+  static std::vector<Cell> surfelIncidentPointels(const TCell& surfel) {
     validateCell(surfel, 1);
-    auto delta = CDH::getDelta(KCA::sCell(surfel, true), 1);
+    DGtal::Dimension k = *dirs(surfel);
     return {
-      KCA::uShifted(surfel, delta),
-      KCA::uShifted(surfel, delta.opp())
+      incident(surfel, k, false),
+      incident(surfel, k, true)
     };
   }
 

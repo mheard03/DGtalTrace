@@ -30,6 +30,7 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
   using SCell = Base::SCell;
   using PreCell = Base::PreCell;
   using SPreCell = Base::SPreCell;
+  using CellDelta = CellDeltaSelector<TKSpace>;
 
  public:  // <-- TODO:: private
   using Base::isPreSpace;
@@ -199,28 +200,28 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
   KSpace::SCell sCell(const TCell& aCell) const {
     return myKPtr->sCell(Base::kCoords(aCell), Base::sign(aCell));
   }
-  
+
   // ----------------------- shift  -------------------------------------------
+public:
   template <concepts::CXPreCell TCell>
-  static void shift(TCell& preCell, const CellDelta<KSpace>& delta) {
-    setKCoord(preCell, delta.dim, Base::kCoord(preCell, delta.dim) + delta.smag());
+  static void shift(TCell& cell, const CellDelta& delta) {
+    setKCoord(cell, delta.dim, Base::kCoord(cell, delta.dim) + delta.delta);
+  }
+  template <concepts::CXCell TCell>
+  void shift(TCell& cell, const CellDelta& delta) const {
+    setKCoord(cell, delta.dim, Base::kCoord(cell, delta.dim) + delta.delta);
   }
 
-  template <concepts::CXCell TCell>
-  void shift(TCell& cell, const CellDelta<KSpace>& delta) const {
-    setKCoord(cell, delta.dim, Base::kCoord(cell, delta.dim) + delta.smag());
-  }
-  
-  template <concepts::CXXCell TCell>
-  static SPreCell sShifted(const TCell& aCell, const CellDelta<KSpace>& delta) {
-    auto result = sPreCell(aCell, delta.sign);
+  template <concepts::CXPreCell TCell>
+  static TCell shifted(const TCell& aCell, const CellDelta& delta) {
+    TCell result(aCell);
     shift(result, delta);
     return result;
   }
-      
-  template <concepts::CXXCell TCell>
-  static PreCell uShifted(const TCell& aCell, const CellDelta<KSpace>& delta) {
-    auto result = uPreCell(aCell);
+
+  template <concepts::CXCell TCell>
+  TCell shifted(const TCell& aCell, const CellDelta& delta) const {
+    TCell result(aCell);
     shift(result, delta);
     return result;
   }

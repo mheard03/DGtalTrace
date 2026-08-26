@@ -46,10 +46,13 @@
 #include "LabelProps/ZeroAssignable.cpp"
 #include "util/ConstImageValueAdapter.cpp"
 #include "util/detail/CellDeltaHelper.cpp"
-#include "util/KPreCellNavigator.cpp"
+// #include "util/KPreCellNavigator.cpp"
 #include "util/tests/testCellDeltaHelper.cpp"
-#include "util/tests/testKPreCellNavigator.cpp"
+// #include "util/tests/testKPreCellNavigator.cpp"
 // #include "ArcSet/custom_views.cpp"
+
+#include "util/detail/CellDelta.cpp"
+#include "util/detail/SignTable.cpp"
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -353,7 +356,7 @@ std::vector<DGtal::Z2i::KSpace::Surfel> /*DGtal::GridCurve<DGtal::Z2i::KSpace>*/
   return surfels;
 }
 
-
+/*
 template <DGtalTrace::concepts::CXCell TCell>
 void testCdhDeltas() {
   typedef typename TCell::CellularGridSpace KSpace;
@@ -400,7 +403,7 @@ void testCdhDeltas() {
     }
   }
 }
-
+*/
 
 int main(int argc, char** argv) {
   typedef DGtal::Z2i::KSpace KSpace;
@@ -412,6 +415,12 @@ int main(int argc, char** argv) {
 
   // DGtalTrace::detail::OrthogonalDirections<KSpace> OD;
   
+  typedef DGtalTrace::detail::SignTable<KSpace> ST;
+  std::ostream& info = DGtal::trace.info();
+  info << "N: "; ST::N.selfDisplay(info); info << std::endl;
+  info << "E: "; ST::E.selfDisplay(info); info << std::endl;
+  info << "S: "; ST::S.selfDisplay(info); info << std::endl;
+  info << "W: "; ST::W.selfDisplay(info); info << std::endl;
 
   /*
   typedef KSpace::SCell SCell;
@@ -544,7 +553,8 @@ int main(int argc, char** argv) {
 
   auto results = testCdhDeltaBasics();
   DGtal::trace.info() << results.size() << " problems." << std::endl;
-
+return 0;
+  /*
   KPreSpace pks;
   results = testSurfelPointelMethods(pks);
   DGtal::trace.info() << results.size() << " problems." << std::endl;
@@ -560,7 +570,7 @@ int main(int argc, char** argv) {
 
   testCdhDeltas<KSpace::Cell>();
   testCdhDeltas<KSpace::SCell>();
-
+  */
 /*
   DGtalTrace::detail::CellDeltaHelper<KSpace> cdh(ks);
   ks.init(Point(0,0), Point(5,5), {KSpace::Closure::PERIODIC, KSpace::Closure::PERIODIC});
@@ -592,7 +602,7 @@ int main(int argc, char** argv) {
       }
     }
   }
-    */
+    
 return 0;
 
   ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});

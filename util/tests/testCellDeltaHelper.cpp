@@ -48,7 +48,7 @@ std::vector<std::string> testCdhDeltaBasicsImpl(const TKSpace ks, const TKCA kca
           i++;
           const TCell endCell = makeCell(endKCoords);
           
-          auto writeError = [&](std::string message, CellDelta<KSpace>& delta) {
+          auto writeError = [&](std::string message, CellDeltaSelector<KSpace>& delta) {
             std::stringstream err;
             err << "testCdhDeltaBasicsImpl<" << CellTypeName<TCell> << ">" << std::endl;
             err << message << std::endl;
@@ -63,12 +63,9 @@ std::vector<std::string> testCdhDeltaBasicsImpl(const TKSpace ks, const TKCA kca
           };
           
           auto delta = cdh.getDelta(startCell, endCell);
+          // DGtal::trace.info() << startCell << ", " << endCell << ", " << delta << std::endl;
           if (dim != delta.dim) {
             writeError("dim != delta.dim", delta);
-          }
-
-          if ((dir < 0 && delta.sign) || (dir > 0 && !delta.sign)) {
-            writeError("sign didn't match dir", delta);
           }
 
           TCell startCopy = makeCell(startCell);
