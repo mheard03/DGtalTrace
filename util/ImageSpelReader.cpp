@@ -8,6 +8,7 @@
 
 #include "../concepts/CXCellularGridSpaceND.cpp"
 #include "../concepts/dgtal/images/CConstImage.cpp"
+#include "KCoordsAccessor.cpp"
 #include "OptValue.cpp"
 #include "CellTypeTraits.cpp"
 #include "KCoordsAdjuster.cpp"
@@ -17,17 +18,26 @@ namespace DGtalTrace {
 template <concepts::CXCellularGridSpaceND TKSpace, concepts::CConstImage TImage>
 requires std::same_as<typename TKSpace::Point, typename TImage::Point>
 class ImageSpelReader {
+  typedef ImageSpelReader<TKSpace, TImage> Self;
+
 public:
   typedef TKSpace KSpace;
+  typedef KCoordsAdjuster<KSpace> KCA;
   typedef typename KSpace::Cell Cell;
   typedef typename KSpace::SCell SCell;
   typedef TImage Image;
   typedef typename Image::Point Point;
   typedef typename Image::Value Value;
   typedef detail::OptValue<Value> OptValue;
-  typedef std::pair<OptValue, OptValue> OptValuePair;
   typedef std::optional<Point> OptPoint;
-  typedef std::pair<OptPoint, OptPoint> OptPointPair;
+
+  struct OptValues {
+    typedef OptValue OptValue;
+    OptValue interior;
+    OptValue exterior;
+
+    bool operator==(const OptValues& other) const = default;
+  };
 
 private:
   typedef typename KSpace::PreCellularGridSpace KPreSpace;
@@ -35,41 +45,34 @@ private:
 
 public:
   ImageSpelReader(DGtal::ConstAlias<KSpace> aKSpace, DGtal::ConstAlias<Image> anImage) :
-    myKPtr(&aKSpace), myImgPtr(&anImage) {}
+    myKCA(&aKSpace), myImgPtr(&anImage) {}
 
-  OptValue atPoint(const Point& aPoint) const {
+  OptValue atCoord(const Point& aPoint) const {
     return (myImgPtr->domain().isInside(aPoint)) ? OptValue((*myImgPtr)(aPoint)) : std::nullopt;
   }
-
-protected:
-  inline OptValue atPoint(const OptPoint& aPoint) const {
-    return (aPoint.has_value()) ? OptValue((*myImgPtr)(aPoint.value())) : std::nullopt;
+  inline OptValue atCoord(const OptPoint& aPoint) const {
+    return (aPoint.has_value()) ? atCoord(aPoint.value()) : std::nullopt;
   }
 
-public:
-  OptValuePair atSurfel(const SPreCell& aSurfel) const {
-    OptPointPair points = pointsAtSurfel(aSurfel);
-    return { atPoint(points.first), atPoint(points.second) };
+  template <concepts::CXXCell TCell>
+  OptValue atSpel(TCell aSpel) const {
+    ASSERT(myKCA.dim(aSpel) == KSpace::dimension);
+    if (!myKCA.isInside(aSpel)) return std::nullopt;
+    return atCoord(myKCA.coords(myKCA.uCell(aSpel)));
   }
 
-  OptPointPair pointsAtSurfel(const SPreCell& aSurfel) const {
-    ASSERT_MSG(KPreSpace::sIsSurfel(aSurfel), "aSurfel is not a surfel");
-    DGtal::Dimension orthDim = KPreSpace::sOrthDir(aSurfel);
-    bool interiorDirection = KPreSpace::sDirect(aSurfel, orthDim);
-
-    return {
-      preSpelToPoint(KPreSpace::sIncident(aSurfel, orthDim, interiorDirection)),
-      preSpelToPoint(KPreSpace::sIncident(aSurfel, orthDim, !interiorDirection))
-    };
-  }
-
-protected:
-  OptPoint preSpelToPoint(const SPreCell& cell) const {
-    return (myKPtr->sIsInside(cell)) ? OptPoint(myKPtr->sCoords(myKPtr->sCell(cell))) : std::nullopt;
+  OptValues atSurfel(const SPreCell& aSurfel) const {
+    ASSERT(myKCA.dim(aSurfel) == KSpace::dimension - 1);
+    auto d = KPreSpace::sOrthDir(aSurfel);
+    auto interiorSpel = KPreSpace::sIncident(aSurfel, d, KPreSpace::sDirect(aSurfel, d));
+    auto exteriorSpel = KPreSpace::sIncident(aSurfel, d, !KPreSpace::sDirect(aSurfel, d));
+    OptPoint interiorCoords = myKCA.isValid(interiorSpel) ? KCA::coords(interiorSpel) : OptPoint();
+    OptPoint exteriorCoords = myKCA.isValid(exteriorSpel) ? KCA::coords(exteriorSpel) : OptPoint();
+    return OptValues{atCoord(interiorCoords), atCoord(exteriorCoords)};
   }
 
 private:
-  const KSpace* myKPtr;
+  KCA myKCA;
   const Image* myImgPtr;
   bool myCheckImageDomain;
 };

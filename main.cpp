@@ -10,11 +10,14 @@
 #include <DGtal/io/readers/STBReader.h>
 #include <DGtal/io/boards/Board2D.h>
 #include <DGtal/io/colormaps/GradientColorMap.h>
+#include <cmath>
+#include <limits>
 #include <optional>
 #include <ranges>
 #include <tuple>
 #include <type_traits>
 #include <numeric>
+#include <unordered_set>
 #include <variant>
 #include <typeindex>
 
@@ -41,7 +44,7 @@
 #include "ArcTracker.cpp"
 #include "util/SafeConstImage.cpp"
 #include "util/ConstSurfelPredicate.cpp"
-#include "FrontierOrEdgePredicate.cpp"
+#include "ContourPredicate.cpp"
 #include "LabelProps/LabelPropertyMap.cpp"
 #include "LabelProps/ZeroAssignable.cpp"
 #include "util/ConstImageValueAdapter.cpp"
@@ -51,8 +54,11 @@
 // #include "util/tests/testKPreCellNavigator.cpp"
 // #include "ArcSet/custom_views.cpp"
 
-#include "util/detail/CellDelta.cpp"
-#include "util/detail/SignTable.cpp"
+// #include "util/detail/CellDelta.cpp"
+// #include "util/detail/SignTable.cpp"
+// #include "ArcSet/ArcData.cpp"
+// #include "ArcSet/Arc.cpp"
+#include "images/STBReaderGray16.h"
 
 using namespace DGtal;
 using namespace DGtalTrace;
@@ -413,15 +419,30 @@ int main(int argc, char** argv) {
   typedef ImageSelector<Domain, DGtal::Color>::Type Image;
   typedef ArcTracker<KSpace, Image> Tracker;
 
+  typedef ImageSelector<Domain, double>::Type ImageD;
+  auto lambda = [](unsigned short v) { return static_cast<double>(v) / (std::numeric_limits<uint8_t>::max() + 1); };
+  ImageD imgD = STBReaderGray16<ImageD, decltype(lambda)>::import("heightmap.png", lambda);
+  std::unordered_set<double> values;
+
+  for (int x = 0; x < 1000; x++) {
+    Point p(x,500);
+    double value = imgD(p);
+    if (value > 0) {
+      trace.info() << value << std::endl;
+    }
+  }  
+
+  return 0;
+
   // DGtalTrace::detail::OrthogonalDirections<KSpace> OD;
-  
+  /*
   typedef DGtalTrace::detail::SignTable<KSpace> ST;
   std::ostream& info = DGtal::trace.info();
   info << "N: "; ST::N.selfDisplay(info); info << std::endl;
   info << "E: "; ST::E.selfDisplay(info); info << std::endl;
   info << "S: "; ST::S.selfDisplay(info); info << std::endl;
   info << "W: "; ST::W.selfDisplay(info); info << std::endl;
-
+*/
   /*
   typedef KSpace::SCell SCell;
   KSpace ks;
@@ -550,10 +571,11 @@ int main(int argc, char** argv) {
   }
 */
   //return 0;
-
+/*
   auto results = testCdhDeltaBasics();
   DGtal::trace.info() << results.size() << " problems." << std::endl;
 return 0;
+*/
   /*
   KPreSpace pks;
   results = testSurfelPointelMethods(pks);
@@ -604,6 +626,13 @@ return 0;
   }
     
 return 0;
+*/
+  KSpace ks;
+  typedef KSpace::Surfel Surfel;
+  typedef KSpace::SCell SCell;
+  typedef KSpace::Cell Cell;
+  typedef KSpace::Point Point;
+  KCoordsAdjuster<KSpace> kca(ks);
 
   ks.init(img.domain().lowerBound(), img.domain().upperBound(), {KSpace::Closure::PERIODIC, KSpace::Closure::CLOSED});
   Tracker t(ks, img);
@@ -664,6 +693,7 @@ return 0;
   }
 
   return 0;
+  
   /*
    
   // DGtal::trace.info() << result;

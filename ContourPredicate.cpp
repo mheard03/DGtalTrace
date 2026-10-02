@@ -21,12 +21,14 @@ class ContourPredicate {
 public:
   typedef TKSpace KSpace;
   typedef TImage Image;
-  typedef typename KSpace::Surfel Surfel;
-  typedef typename KSpace::Point Point;
 
 private:
   typedef ImageSpelReader<KSpace, Image> Reader;
-  typedef Reader::OptValuePair OptValuePair;
+
+public:
+  typedef typename KSpace::Surfel Surfel;
+  typedef typename KSpace::Point Point;
+  typedef Reader::OptValues OptValues;
 
 public:
   ContourPredicate(DGtal::ConstAlias<KSpace> aSpace, DGtal::ConstAlias<Image> anImage)
@@ -47,23 +49,33 @@ public:
   void init(const Surfel &aSurfel) {
     myValues = myReader.atSurfel(aSurfel);
   }
+  void init(const OptValues &values) {
+    myValues = values;
+  }
+  void init(const OptValues::OptValue &interiorValue, const OptValues::OptValue &exteriorValue) {
+    init(OptValues{interiorValue, exteriorValue});
+  }
 
   bool operator()(const Surfel &aSurfel) const {
-    auto values = myReader.atSurfel(aSurfel);
-    return values == myValues;
+    OptValues values = myReader.atSurfel(aSurfel);
+    return myValues == values;
   }
 
   void selfDisplay(std::ostream &out) const {
-    out << "[FrontierOrEdgePredicate " << myValues.first << ", " << myValues.second << " ]";
+    out << "[ContourPredicate " << myValues.interior << ", " << myValues.exterior << " ]";
   }
 
   bool hasContrast() const {
-    return myValues.first != myValues.second;
+    return myValues.interior != myValues.exterior;
+  }
+
+  const OptValues& values() const {
+    return myValues;
   }
 
 private:
   ImageSpelReader<KSpace, Image> myReader;
-  OptValuePair myValues;
+  OptValues myValues;
 };
 
 } // namespace functors

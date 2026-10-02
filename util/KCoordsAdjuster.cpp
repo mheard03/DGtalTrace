@@ -21,6 +21,7 @@ namespace DGtalTrace {
 template <concepts::CXCellularGridSpaceND TKSpace>
 class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
   typedef KCoordsAccessor<TKSpace> Base;
+  typedef KCoordsAdjuster<TKSpace> Self;
  public:  
   using KSpace = Base::KSpace;
   using KPreSpace = Base::KPreSpace;
@@ -47,6 +48,13 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
  public:  
   KCoordsAdjuster(DGtal::ConstAlias<KSpace> ks) : myKPtr(&ks), Base() {}
   KCoordsAdjuster() requires concepts::CPreCellularGridSpaceND<KSpace> : KCoordsAdjuster(&detail::preSpaces<KSpace>) {}
+  KCoordsAdjuster(const KCoordsAdjuster& other) : myKPtr(other.myKPtr), Base() {}
+    Self& operator=(const Self& other) {
+      if (this != &other) {
+          myKPtr = other.myKPtr; 
+      }
+      return *this;
+  }
 
   // ----------------------- kCoords, plural  ---------------------------------
   template <concepts::CXPreCell TCell>
@@ -89,7 +97,7 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
     if constexpr (isPreSpace)
       return true;
     else
-      return isValid(kCoords(cell));
+      return isValid(Base::kCoords(cell));
   }
   void assertValid(const Point& kCoords) const {
     ASSERT(isValid(kCoords));
@@ -112,10 +120,10 @@ class KCoordsAdjuster : public KCoordsAccessor<TKSpace> {
     if constexpr (isPreSpace)
       return true;
     else
-      return isInside(kCoords(cell));
+      return isInside(Base::kCoords(cell));
   }
   void assertInside(const Point& kCoords) const {
-    ASSERT(isValid(kCoords));
+    ASSERT(isInside(kCoords));
   }
   template <concepts::CXXCell TCell>
   requires canRead<TCell>

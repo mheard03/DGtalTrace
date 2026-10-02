@@ -27,7 +27,7 @@
 #include "concepts/dgtal/images/CConstImage.cpp"
 #include "util/ConstSurfelPredicate.cpp"
 #include "util/SurfelFollowers.cpp"
-#include "FrontierOrEdgePredicate.cpp"
+#include "ContourPredicate.cpp"
 
 namespace DGtalTrace {
 
