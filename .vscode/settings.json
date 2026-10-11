@@ -6,5 +6,9 @@
     "--header-insertion=never"
   ],
   "C_Cpp.intelliSenseEngine": "disabled",
-  "cmake.configureOnOpen": true
+  "cmake.configureOnOpen": true,
+  "cmake.debugConfig": {
+    "type": "lldb",
+    "cwd": "${workspaceFolder}"
+  }
 }

@@ -34,18 +34,32 @@ INCLUDE(${CPM_DOWNLOAD_LOCATION})
 
 
 # DGtal  ----------------------------------------------------------------------
+
+# fudge polyscope
+set(POLYSCOPE_BACKEND_OPENGL3_GLFW "ON" CACHE BOOL "Enable openGL3_glfw backend" FORCE)
+set(POLYSCOPE_BACKEND_OPENGL_MOCK "OFF" CACHE BOOL "Enable openGL_mock backend" FORCE)
+set(POLYSCOPE_BACKEND_OPENGL3_EGL "OFF" CACHE STRING "Enable openGL3_egl backend" FORCE)
+
+# CPMAddPackage
 SET(DGTAL_ENABLE_TARGET_INSTALL OFF) # Necessary for use with CPM
-SET(WITH_EIGEN ON)
+SET(WITH_EIGEN OFF) # might need this on later
 CPMAddPackage(
   NAME dgtal
   GITHUB_REPOSITORY DGtal-team/DGtal
-  GIT_TAG v2.1 # Replace x.y.z with the desired release version
+  GIT_TAG v2.2 # Replace x.y.z with the desired release version
 #  URI "gh:DGtal-team/DGtal@2.1"
   OPTIONS
     # More in the [build page](https://www.dgtal.org/doc/stable/moduleBuildDGtal.html)
     "DGTAL_WITH_POLYSCOPE_VIEWER ON"
-    "DGTAL_WITH_OPENMP ON"
-    "DGTAL_WRAP_PYTHON OFF"
+    "DGTAL_WITH_OPENMP OFF"
+    "DGTAL_WITH_CGAL OFF"
+    "DGTAL_WITH_ITK OFF"
+    "DGTAL_WITH_CAIRO OFF"
+    "DGTAL_WITH_HDF5 OFF"
+    "DGTAL_WITH_PONCA OFF"
+    "DGTAL_WITH_FFTW3 OFF"
+    "DGTAL_WITH_LIBIGL OFF"
+    "DGTAL_WRAP_PYTHON OFF"    
 )
 
 

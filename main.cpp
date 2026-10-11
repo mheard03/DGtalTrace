@@ -8,6 +8,7 @@
 #include <unordered_map>
 #include <DGtal/geometry/curves/ArithmeticalDSSComputer.h>
 #include <DGtal/geometry/curves/SaturatedSegmentation.h>
+#include "DataTable.hpp"
 
 using namespace DGtal;
 using namespace Z2i;
@@ -119,6 +120,41 @@ std::ostream& operator<<(std::ostream& os, const KeyImageInfo& obj) {
 }
 
 int main(int argc, char** argv) {
+  using Table = DGtalTrace::DataTable<std::string, std::string, int>;
+// using namespace std::string_literals; 
+  Table t;
+  t.addColumn("col0", 0);
+  t.addColumn("col1", 1);
+  t.addColumn<std::string>("coltxt", "nil");
+
+  t.insert_or_assign("col0", "key0", 0);
+  t.insert_or_assign("col0", "key1", 1);
+  t.insert_or_assign("coltxt", "key1", "one");
+  t.insert_or_assign("coltxt", "key2", "two");
+  t.insert_or_assign("col1", "key3", 3);
+
+  for (auto colName : { "col0", "col1" }) {
+    DGtal::trace.info() << colName << std::endl;
+    auto col = t.getColumn<int>(colName);
+    for (auto key : { "key0", "key1", "key2" }) {
+      DGtal::trace.info() << "  " << key << ": " << col.at(key) << std::endl;
+    }
+    DGtal::trace.info() << std::endl;
+  }
+
+  DGtal::trace.info() << "coltxt" << std::endl;
+  auto col = t.getColumn<std::string>("coltxt");
+  for (auto key : { "key0", "key1", "key2" }) {
+    DGtal::trace.info() << "  " << key << ": " << col.at(key) << std::endl;
+  }
+  DGtal::trace.info() << std::endl;
+
+  DGtal::trace.info() << t;
+
+  return 0;
+
+
+
   std::string inputFilename = (argc >= 1 ? "cali.png" : argv[1]);
 
   trace.beginBlock("reading " + inputFilename);
